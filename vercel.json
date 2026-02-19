@@ -2,11 +2,11 @@
   "crons": [
     {
       "path": "/api/cron/expire-pending",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 0 * * *"
     },
     {
       "path": "/api/cron/no-show",
-      "schedule": "0 */1 * * *"
+      "schedule": "0 6 * * *"
     },
     {
       "path": "/api/cron/review-reminder",
