@@ -1,0 +1,62 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-accent: #2D7D6F;
+  --color-accent-dark: #1A5A4F;
+  --color-accent-light: #3D9D8F;
+  --color-status-pending: #F59E0B;
+  --color-status-confirmed: #10B981;
+  --color-status-in-use: #3B82F6;
+  --color-status-completed: #6B7280;
+  --color-status-cancelled: #EF4444;
+  --font-serif: 'Noto Serif JP', serif;
+  --font-sans: 'Noto Sans JP', sans-serif;
+}
+
+/* === NO border-radius: Linkus Design Rule === */
+*,
+*::before,
+*::after {
+  border-radius: 0 !important;
+}
+
+/* === Base === */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 300;
+}
+
+a {
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* === Scrollbar === */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #999;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #666;
+}

@@ -1,0 +1,1 @@
+import{renameSync}from"fs";renameSync("/Volumes/LINKUS_SSD/cursor制作/Mobirio_website/app/(vendor)/vendor/bikes/xid","/Volumes/LINKUS_SSD/cursor制作/Mobirio_website/app/(vendor)/vendor/bikes/[id]");console.log("ok")
