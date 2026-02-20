@@ -27,13 +27,13 @@ export function KanbanCard({
   totalAmount,
 }: KanbanCardProps) {
   return (
-    <div className="bg-white border border-gray-200 p-[12px] hover:shadow-md transition-shadow">
-      <Link
-        href={`/vendor/reservations/${id}`}
-        className="text-accent font-mono text-xs hover:underline"
-      >
+    <Link
+      href={`/vendor/reservations/${id}`}
+      className="block bg-white border border-gray-200 p-[12px] hover:shadow-md transition-shadow cursor-pointer"
+    >
+      <span className="text-accent font-mono text-xs">
         {reservationNo}
-      </Link>
+      </span>
       <p className="text-sm mt-[4px]">{customerName}</p>
       <div className="mt-[6px]">
         <p className="text-sm font-medium">{vehicleName}</p>
@@ -46,6 +46,6 @@ export function KanbanCard({
       <div className="text-right mt-[8px]">
         <span className="text-sm font-medium">&yen;{totalAmount.toLocaleString()}</span>
       </div>
-    </div>
+    </Link>
   );
 }

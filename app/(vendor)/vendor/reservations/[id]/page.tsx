@@ -37,11 +37,8 @@ const MOCK_RESERVATION = {
   baseAmount: 12000,
   cdwEnabled: true,
   cdwAmount: 1100,
-  insuranceAmount: 800,
   couponName: "",
   couponDiscount: 0,
-  jafEnabled: false,
-  jafDiscount: 0,
   gearItems: [
     { id: "g1", type: "ヘルメット", size: "L", dayOnePrice: 500, dayTwoPrice: 500, qty: 1, days: 2, subtotal: 1000 },
     { id: "g2", type: "グローブ", size: "M", dayOnePrice: 300, dayTwoPrice: 300, qty: 1, days: 2, subtotal: 600 },
@@ -122,7 +119,6 @@ export default function VendorReservationDetailPage() {
   const [returnTime, setReturnTime] = useState(MOCK_RESERVATION.returnTime);
   const [cdwEnabled, setCdwEnabled] = useState(MOCK_RESERVATION.cdwEnabled);
   const [selectedCoupon, setSelectedCoupon] = useState(MOCK_RESERVATION.couponName);
-  const [jafEnabled, setJafEnabled] = useState(MOCK_RESERVATION.jafEnabled);
   const [otherCharges, setOtherCharges] = useState(MOCK_RESERVATION.otherCharges);
   const [additionalCharges, setAdditionalCharges] = useState(MOCK_RESERVATION.additionalCharges);
   const [departureMileage, setDepartureMileage] = useState(String(MOCK_RESERVATION.departureMileage));
@@ -180,21 +176,18 @@ export default function VendorReservationDetailPage() {
 
   const baseAmount = MOCK_RESERVATION.baseAmount;
   const cdwAmount = cdwEnabled ? MOCK_RESERVATION.cdwAmount * rentalDays : 0;
-  const insuranceAmount = MOCK_RESERVATION.insuranceAmount * (rentalDays || 1);
   const couponDiscount = (() => {
     const coupon = COUPON_OPTIONS.find((c) => c.value === selectedCoupon);
     if (!coupon || !coupon.discount_type) return 0;
     if (coupon.discount_type === "fixed") {
       return Math.min(coupon.discount_value, baseAmount);
     }
-    // percentage
     const raw = Math.floor(baseAmount * coupon.discount_value / 100);
     return coupon.max_discount ? Math.min(raw, coupon.max_discount) : raw;
   })();
-  const jafDiscount = jafEnabled ? Math.floor(baseAmount * 0.1) : 0;
   const gearTotal = MOCK_RESERVATION.gearItems.reduce((sum, g) => sum + g.subtotal, 0);
   const otherTotal = otherCharges.reduce((sum, c) => sum + c.amount, 0);
-  const rentalTotal = baseAmount + cdwAmount + insuranceAmount - couponDiscount - jafDiscount + gearTotal + otherTotal;
+  const rentalTotal = baseAmount + cdwAmount - couponDiscount + gearTotal + otherTotal;
 
   const additionalTotal = additionalCharges.reduce((sum, c) => sum + c.amount, 0);
 
@@ -389,7 +382,7 @@ export default function VendorReservationDetailPage() {
             <div className="bg-yellow-50 border border-yellow-300 p-[12px] mb-[16px] flex items-start gap-[8px]">
               <AlertTriangle className="w-[16px] h-[16px] text-yellow-600 shrink-0 mt-[2px]" />
               <p className="text-xs text-yellow-800">
-                出発日、返却日を変更した場合、基本料金、免責補償、クーポン、JAF優待割引、ライダーズギアの入力内容は初期化されます。
+                出発日、返却日を変更した場合、基本料金、免責補償、クーポン、ライダーズギアの入力内容は初期化されます。
               </p>
             </div>
 
@@ -460,12 +453,6 @@ export default function VendorReservationDetailPage() {
               <span className="text-sm font-medium">&yen;{cdwAmount.toLocaleString()}</span>
             </div>
 
-            {/* 任意保険 */}
-            <div className="flex items-center justify-between py-[10px] border-b border-gray-100">
-              <span className="text-sm text-gray-600">任意保険</span>
-              <span className="text-sm font-medium">&yen;{insuranceAmount.toLocaleString()}</span>
-            </div>
-
             {/* Coupon */}
             <div className="flex items-center justify-between py-[10px] border-b border-gray-100">
               <div className="flex items-center gap-[8px]">
@@ -482,22 +469,6 @@ export default function VendorReservationDetailPage() {
               </div>
               <span className="text-sm font-medium text-red-600">-&yen;{couponDiscount.toLocaleString()}</span>
             </div>
-
-            {/* JAF */}
-            <div className="flex items-center justify-between py-[10px] border-b border-gray-100">
-              <label className="flex items-center gap-[8px] text-sm text-gray-600">
-                <input
-                  type="checkbox"
-                  checked={jafEnabled}
-                  onChange={(e) => setJafEnabled(e.target.checked)}
-                  className="accent-accent"
-                />
-                JAF割り (10%OFF)
-              </label>
-              <span className="text-sm font-medium text-red-600">-&yen;{jafDiscount.toLocaleString()}</span>
-            </div>
-
-            <p className="text-xs text-orange-600 py-[8px]">※クーポンとJAF割りは併用できません</p>
 
             {/* Riders Gear */}
             <div className="mt-[12px]">
@@ -704,6 +675,7 @@ export default function VendorReservationDetailPage() {
                     <th className="px-[8px] py-[6px] text-left">ステータス</th>
                     <th className="px-[8px] py-[6px] text-right">金額</th>
                     <th className="px-[8px] py-[6px] text-left">備考</th>
+                    <th className="px-[8px] py-[6px] text-center w-[60px]"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -725,11 +697,25 @@ export default function VendorReservationDetailPage() {
                         )}
                       </td>
                       <td className="px-[8px] py-[6px] text-gray-500">{p.note ?? "-"}</td>
+                      <td className="px-[8px] py-[6px] text-center">
+                        {p.status === "completed" && (
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`この決済（¥${p.amount.toLocaleString()}）を取り消しますか？`)) {
+                                setPayments((prev) => prev.filter((x) => x.id !== p.id));
+                              }
+                            }}
+                            className="text-red-400 hover:text-red-600 text-[11px] hover:underline"
+                          >
+                            取消
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                   {payments.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="px-[8px] py-[12px] text-center text-gray-400">決済履歴はありません</td>
+                      <td colSpan={6} className="px-[8px] py-[12px] text-center text-gray-400">決済履歴はありません</td>
                     </tr>
                   )}
                 </tbody>
@@ -752,11 +738,6 @@ export default function VendorReservationDetailPage() {
                 <CreditCard className="w-[14px] h-[14px]" />
                 現地クレカを記録
               </button>
-              <div className="ml-auto">
-                <button className="border border-gray-300 text-gray-700 px-[14px] py-[8px] text-sm hover:bg-gray-50">
-                  未決済
-                </button>
-              </div>
             </div>
           </div>
 
