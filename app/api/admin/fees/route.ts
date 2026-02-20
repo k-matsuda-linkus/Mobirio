@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createAdminSupabaseClient } from '@/lib/supabase/server';
 
 const FEE_KEYS = [
   'royalty_bike_percent',
@@ -21,7 +21,7 @@ const DEFAULTS: Record<string, string> = {
 
 /** ロイヤリティ・EC決済手数料・分配率の取得 */
 export async function GET() {
-  const supabase = await createServerSupabaseClient();
+  const supabase = createAdminSupabaseClient();
 
   const { data, error } = await supabase
     .from('system_settings')
@@ -57,7 +57,7 @@ export async function PUT(request: NextRequest) {
     );
   }
 
-  const supabase = await createServerSupabaseClient();
+  const supabase = createAdminSupabaseClient();
   const updates: { key: string; value: string }[] = [];
 
   for (const key of FEE_KEYS) {

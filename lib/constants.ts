@@ -31,14 +31,12 @@ export const VENDOR_NAV_ITEMS: NavItem[] = [
     { href: "/vendor/bikes", label: "車両一覧" },
     { href: "/vendor/bikes/archived", label: "アーカイブ車両" },
   ]},
-  { href: "#gear", label: "ライダーズギア管理", icon: "HardHat", children: [
-    { href: "/vendor/gear", label: "ライダーズギア一覧" },
-  ]},
+  { href: "/vendor/gear", label: "ライダーズギア管理", icon: "HardHat" },
   { href: "#shop", label: "店舗管理", icon: "Store", children: [
     { href: "/vendor/shop", label: "店舗設定" },
     { href: "/vendor/reviews", label: "店舗クチコミ一覧" },
   ]},
-  { href: "/vendor/campaigns", label: "キャンペーン一覧", icon: "Megaphone", badge: "開発中" },
+  { href: "/vendor/coupons", label: "クーポン管理", icon: "Ticket" },
   { href: "/vendor/announcements", label: "お知らせ一覧", icon: "Bell" },
   { href: "#exports", label: "データ出力管理", icon: "FileDown", children: [
     { href: "/vendor/exports/insurance", label: "任意保険請求明細書" },
@@ -47,10 +45,10 @@ export const VENDOR_NAV_ITEMS: NavItem[] = [
     { href: "/vendor/exports/logs", label: "ログ出力" },
   ]},
   { href: "#analytics", label: "分析", icon: "BarChart3", children: [
-    { href: "/vendor/analytics/shop-pv", label: "店舗PV分析" },
-    { href: "/vendor/analytics/bike-pv", label: "車両PV分析" },
-    { href: "/vendor/analytics/shop-performance", label: "店舗予約実績分析" },
-    { href: "/vendor/analytics/bike-performance", label: "車両予約実績分析" },
+    { href: "/vendor/analytics/shop-pv", label: "店舗アクセス分析" },
+    { href: "/vendor/analytics/bike-pv", label: "車両アクセス分析" },
+    { href: "/vendor/analytics/shop-performance", label: "店舗予約実績" },
+    { href: "/vendor/analytics/bike-performance", label: "車両予約実績" },
   ]},
   { href: "/vendor/manual", label: "マニュアル", icon: "BookOpen" },
 ];

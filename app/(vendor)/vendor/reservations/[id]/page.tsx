@@ -100,10 +100,10 @@ const MOCK_RESERVATION = {
 };
 
 const COUPON_OPTIONS = [
-  { value: "", label: "選択してください" },
-  { value: "coupon-a", label: "初回10%OFFクーポン" },
-  { value: "coupon-b", label: "リピーター500円OFFクーポン" },
-  { value: "coupon-c", label: "夏季キャンペーン1000円OFF" },
+  { value: "", label: "選択してください", discount_type: null, discount_value: 0, max_discount: null },
+  { value: "cpn-001", label: "初回10%OFFクーポン", discount_type: "percentage" as const, discount_value: 10, max_discount: 2000 },
+  { value: "cpn-002", label: "夏季500円OFFクーポン", discount_type: "fixed" as const, discount_value: 500, max_discount: null },
+  { value: "cpn-003", label: "リピーター1000円OFF", discount_type: "fixed" as const, discount_value: 1000, max_discount: null },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -181,7 +181,16 @@ export default function VendorReservationDetailPage() {
   const baseAmount = MOCK_RESERVATION.baseAmount;
   const cdwAmount = cdwEnabled ? MOCK_RESERVATION.cdwAmount * rentalDays : 0;
   const insuranceAmount = MOCK_RESERVATION.insuranceAmount * (rentalDays || 1);
-  const couponDiscount = selectedCoupon ? 500 : 0;
+  const couponDiscount = (() => {
+    const coupon = COUPON_OPTIONS.find((c) => c.value === selectedCoupon);
+    if (!coupon || !coupon.discount_type) return 0;
+    if (coupon.discount_type === "fixed") {
+      return Math.min(coupon.discount_value, baseAmount);
+    }
+    // percentage
+    const raw = Math.floor(baseAmount * coupon.discount_value / 100);
+    return coupon.max_discount ? Math.min(raw, coupon.max_discount) : raw;
+  })();
   const jafDiscount = jafEnabled ? Math.floor(baseAmount * 0.1) : 0;
   const gearTotal = MOCK_RESERVATION.gearItems.reduce((sum, g) => sum + g.subtotal, 0);
   const otherTotal = otherCharges.reduce((sum, c) => sum + c.amount, 0);

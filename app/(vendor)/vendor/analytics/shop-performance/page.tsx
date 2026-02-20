@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download, ArrowRight, TrendingUp, TrendingDown } from "lucide-react";
+import { Download, TrendingUp, TrendingDown } from "lucide-react";
 import { VendorPageHeader } from "@/components/vendor/VendorPageHeader";
 import { StoreSelector } from "@/components/vendor/StoreSelector";
 import { AnalyticsChart } from "@/components/vendor/AnalyticsChart";
@@ -45,8 +45,8 @@ export default function VendorShopPerformancePage() {
   return (
     <div>
       <VendorPageHeader
-        title="店舗予約実績分析"
-        breadcrumbs={[{ label: "分析" }, { label: "店舗予約実績分析" }]}
+        title="店舗予約実績"
+        breadcrumbs={[{ label: "分析" }, { label: "店舗予約実績" }]}
       />
 
       {/* 店舗選択 */}
@@ -55,12 +55,12 @@ export default function VendorShopPerformancePage() {
       </div>
 
       {/* フィルターパネル */}
-      <div className="bg-surface border-t border-gray-200 p-[16px] mb-[16px]">
+      <div className="bg-white border border-gray-200 p-[16px] mb-[16px]">
         <div className="space-y-[12px]">
           <div className="flex flex-wrap items-center gap-[24px]">
             {/* 日付条件セグメントトグル */}
             <div>
-              <label className="block text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-[6px]">日付条件</label>
+              <label className="block text-[11px] text-gray-400 mb-[4px]">日付条件</label>
               <div className="inline-flex border border-gray-200">
                 {([
                   { value: "reservation", label: "予約登録日" },
@@ -84,7 +84,7 @@ export default function VendorShopPerformancePage() {
             </div>
             {/* 分析単位セグメントトグル */}
             <div>
-              <label className="block text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-[6px]">分析単位</label>
+              <label className="block text-[11px] text-gray-400 mb-[4px]">分析単位</label>
               <div className="inline-flex border border-gray-200">
                 {([
                   { value: "year", label: "年単位" },
@@ -110,7 +110,7 @@ export default function VendorShopPerformancePage() {
           <div className="flex flex-wrap items-center gap-[24px]">
             {/* 有償/無償セグメントトグル */}
             <div>
-              <label className="block text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-[6px]">有償/無償</label>
+              <label className="block text-[11px] text-gray-400 mb-[4px]">有償/無償</label>
               <div className="inline-flex border border-gray-200">
                 {([
                   { value: "all", label: "すべて" },
@@ -134,7 +134,7 @@ export default function VendorShopPerformancePage() {
             </div>
             {/* 表示内容セグメントトグル */}
             <div>
-              <label className="block text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-[6px]">表示内容</label>
+              <label className="block text-[11px] text-gray-400 mb-[4px]">表示内容</label>
               <div className="inline-flex border border-gray-200">
                 {([
                   { value: "amount", label: "金額" },
@@ -157,7 +157,7 @@ export default function VendorShopPerformancePage() {
             </div>
             {/* 対象年 */}
             <div>
-              <label className="block text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-[6px]">対象年</label>
+              <label className="block text-[11px] text-gray-400 mb-[4px]">対象年</label>
               <select value={analysisYear} onChange={(e) => setAnalysisYear(e.target.value)} className={inputClass + " w-[100px]"}>
                 <option value="2025">2025年</option>
                 <option value="2026">2026年</option>
@@ -179,35 +179,27 @@ export default function VendorShopPerformancePage() {
         </div>
       </div>
 
-      {/* サマリーカード（改善版） */}
-      <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr_auto_1fr] gap-[12px] items-center mb-[16px]">
+      {/* サマリーカード */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-[12px] mb-[16px]">
         {/* 前年 年間合計 */}
         <div className="bg-white border border-gray-200 p-[16px]">
-          <p className="text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-[6px]">前年 年間合計</p>
-          <p className="text-[28px] font-semibold text-gray-900">
+          <p className="text-[11px] text-gray-400 mb-[4px]">前年 年間合計</p>
+          <p className="text-[26px] font-semibold tracking-tight text-gray-900">
             &yen;{totalPrevYear.toLocaleString()}
           </p>
         </div>
-        {/* 比較インジケータ矢印 */}
-        <div className="hidden sm:flex items-center justify-center">
-          <ArrowRight className="w-[20px] h-[20px] text-gray-400" />
-        </div>
         {/* 当年 年間合計 */}
         <div className="bg-white border border-gray-200 p-[16px]">
-          <p className="text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-[6px]">当年 年間合計</p>
-          <p className="text-[28px] font-semibold text-gray-900">
+          <p className="text-[11px] text-gray-400 mb-[4px]">当年 年間合計</p>
+          <p className="text-[26px] font-semibold tracking-tight text-gray-900">
             &yen;{totalCurrentYear.toLocaleString()}
           </p>
         </div>
-        {/* 比較インジケータ矢印 */}
-        <div className="hidden sm:flex items-center justify-center">
-          <ArrowRight className="w-[20px] h-[20px] text-gray-400" />
-        </div>
         {/* 前年比 */}
         <div className="bg-white border border-gray-200 p-[16px]">
-          <p className="text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-[6px]">前年比</p>
+          <p className="text-[11px] text-gray-400 mb-[4px]">前年比</p>
           <div className="flex items-center gap-[8px]">
-            <p className={"text-[28px] font-semibold " + (yoyRatio >= 100 ? "text-accent" : "text-red-500")}>
+            <p className={"text-[26px] font-semibold tracking-tight " + (yoyRatio >= 100 ? "text-accent" : "text-red-500")}>
               {yoyRatio}%
             </p>
             {yoyRatio >= 100 ? (

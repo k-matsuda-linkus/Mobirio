@@ -58,6 +58,15 @@ function BookingPageContent() {
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
   const [cdw, setCdw] = useState(false);
   const [notes, setNotes] = useState('');
+  const [couponCode, setCouponCode] = useState('');
+  const [couponApplied, setCouponApplied] = useState<{
+    valid: boolean;
+    discountAmount: number;
+    couponName: string;
+    couponId: string;
+  } | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [couponLoading, setCouponLoading] = useState(false);
 
   useEffect(() => {
     if (!bikeId) {
@@ -101,7 +110,54 @@ function BookingPageContent() {
   const twoHourAvailable = vehicleClass ? isTwoHourPlanAvailable(vehicleClass) : true;
   const cdwPerDay = vehicleClass ? getCDWPriceForClass(vehicleClass) : 1500;
 
-  const calculatePrice = () => {
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) {
+      setCouponError('クーポンコードを入力してください');
+      return;
+    }
+    if (!bike) return;
+
+    setCouponLoading(true);
+    setCouponError(null);
+    setCouponApplied(null);
+
+    try {
+      const price = calculatePriceRaw();
+      const res = await fetch('/api/coupons/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: couponCode.trim().toUpperCase(),
+          vendorId: bike.vendor_id,
+          bikeId: bike.id,
+          baseAmount: price?.baseAmount ?? 0,
+        }),
+      });
+      const data = await res.json();
+      if (data.valid) {
+        setCouponApplied({
+          valid: true,
+          discountAmount: data.discountAmount,
+          couponName: data.couponName,
+          couponId: data.couponId,
+        });
+      } else {
+        setCouponError(data.reason || 'クーポンが無効です');
+      }
+    } catch {
+      setCouponError('クーポンの検証に失敗しました');
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setCouponCode('');
+    setCouponApplied(null);
+    setCouponError(null);
+  };
+
+  const calculatePriceRaw = () => {
     if (!bike || !startDatetime || !endDatetime) return null;
 
     const start = new Date(startDatetime);
@@ -135,6 +191,17 @@ function BookingPageContent() {
     };
   };
 
+  const calculatePrice = () => {
+    const raw = calculatePriceRaw();
+    if (!raw) return null;
+    const couponDiscount = couponApplied?.discountAmount ?? 0;
+    return {
+      ...raw,
+      couponDiscount,
+      totalAmount: raw.totalAmount - couponDiscount,
+    };
+  };
+
   const handleSubmit = async () => {
     if (!bike || !startDatetime || !endDatetime) {
       setError('開始日時と終了日時を選択してください');
@@ -156,6 +223,7 @@ function BookingPageContent() {
           options: selectedOptions,
           cdw,
           notes,
+          ...(couponApplied ? { couponCode: couponCode.trim().toUpperCase() } : {}),
         }),
       });
 
@@ -293,6 +361,47 @@ function BookingPageContent() {
             </label>
           </div>
 
+          {/* Coupon */}
+          <div className="space-y-2">
+            <p className="text-xs text-gray-500">クーポンコード</p>
+            {couponApplied ? (
+              <div className="flex items-center justify-between bg-accent/5 border border-accent/20 px-[12px] py-[8px]">
+                <div>
+                  <p className="text-sm font-medium text-accent">{couponApplied.couponName}</p>
+                  <p className="text-xs text-gray-500">-¥{couponApplied.discountAmount.toLocaleString()} 割引適用中</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRemoveCoupon}
+                  className="text-xs text-gray-400 hover:text-red-500"
+                >
+                  取消
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-[8px]">
+                <input
+                  type="text"
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                  placeholder="例: WELCOME10"
+                  className="border border-gray-300 px-[10px] py-[6px] text-sm flex-1 focus:outline-none focus:border-accent"
+                />
+                <button
+                  type="button"
+                  onClick={handleApplyCoupon}
+                  disabled={couponLoading || !couponCode.trim()}
+                  className="border border-accent text-accent px-[16px] py-[6px] text-sm hover:bg-accent/5 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                >
+                  {couponLoading ? '確認中...' : '適用'}
+                </button>
+              </div>
+            )}
+            {couponError && (
+              <p className="text-xs text-red-500">{couponError}</p>
+            )}
+          </div>
+
           <Textarea
             label="備考"
             value={notes}
@@ -318,6 +427,12 @@ function BookingPageContent() {
                 <div className="flex justify-between text-sm">
                   <span>CDW（{price.days}日分）</span>
                   <span>¥{price.cdwAmount.toLocaleString()}</span>
+                </div>
+              )}
+              {price.couponDiscount > 0 && (
+                <div className="flex justify-between text-sm text-red-600">
+                  <span>クーポン割引</span>
+                  <span>-¥{price.couponDiscount.toLocaleString()}</span>
                 </div>
               )}
               <div className="flex justify-between text-lg font-medium pt-2 border-t">

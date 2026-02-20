@@ -1386,3 +1386,32 @@ pathname.startsWith("/vendor")
 - **変更**: `components/vendor/VendorTopBar.tsx` — ページタイトル（h1）を削除、TopBarをツールバーに特化（StoreSelector + 通知ベル + コマンドパレットのみ）。高さを56px→48pxに削減。StoreSelector をモバイルでも常時表示に変更（`hidden md:flex` → 常時表示）。`usePathname`, `VENDOR_NAV_ITEMS`, `resolvePageTitle` の不要import/関数を削除
 - **変更**: `app/(vendor)/vendor/layout.tsx` — main の `pt-[56px]` → `pt-[48px]` に同期変更（TopBar高さ変更に合わせ）
 - **理由**: TopBarとVendorPageHeaderでページタイトルが重複表示されていた問題を解消。VendorPageHeaderにタイトル・パンくず・アクションボタンを一元化
+
+### 2026-02-20（クーポン管理機能フル実装）
+
+Phase 9「キャンペーン一覧」（プレースホルダー）を「クーポン管理」に変更。ベンダーがクーポンを作成・管理でき、ユーザーが予約時にクーポンコードを入力して割引を受けられる機能。定額・定率の両方に対応。
+
+#### Phase 1: DB + 型定義 + 共有ロジック
+- **新規**: `supabase/migrations/20260220_create_coupons.sql` — `coupons` テーブル（vendor_id, code, name, discount_type, discount_value, max_discount, usage_limit等）、`coupon_usages` テーブル（使用履歴）、reservationsに`coupon_id`カラム追加、RLS、インデックス、updated_atトリガー
+- **変更**: `types/database.ts` — `CouponDiscountType`型追加、`coupons`/`coupon_usages`テーブル型追加、`Coupon`/`CouponUsage` エイリアス追加
+- **変更**: `types/booking.ts` — `BookingFormData`に`couponCode?: string`追加
+- **新規**: `lib/booking/coupon.ts` — `validateCoupon()`（有効期間・使用回数・対象車両・最低金額チェック）、`calculateCouponDiscount()`（定額→そのまま、定率→floor計算+max_discount上限）
+
+#### Phase 2: ベンダー管理画面
+- **変更**: `lib/constants.ts` — VENDOR_NAV_ITEMS: `campaigns`→`{ href: "/vendor/coupons", label: "クーポン管理", icon: "Ticket" }`（badge削除）
+- **変更**: `components/vendor/VendorNavigation.tsx` — lucide-react importに`Ticket`追加、iconMapに`Ticket`追加
+- **変更**: `components/vendor/StatusBadge.tsx` — coupon_active(配布中)、coupon_scheduled(配布予定)、coupon_expired(期限切れ)、coupon_disabled(停止中)、coupon_exhausted(枚数到達) の5ステータス追加
+- **新規**: `app/(vendor)/vendor/coupons/page.tsx` — クーポン一覧（VendorDataTable使用、7カラム: コード/クーポン名/割引内容/利用状況/有効期間/ステータス/操作、モック5件）
+- **新規**: `app/(vendor)/vendor/coupons/new/page.tsx` — 新規作成フォーム（code/name/description/discount_type/discount_value/max_discount/min_order_amount/usage_limit/per_user_limit/valid_from/valid_until、バリデーション付き）
+- **新規**: `app/(vendor)/vendor/coupons/[id]/edit/page.tsx` — 編集フォーム（新規と同フォーム+利用状況プログレスバー+is_activeトグル+削除ボタン）
+- **変更**: `app/(vendor)/vendor/campaigns/page.tsx` — `/vendor/coupons`へリダイレクト
+
+#### Phase 3: API
+- **新規**: `app/api/vendor/coupons/route.ts` — GET一覧（モック5件、pagination対応）/ POST作成（バリデーション付き）
+- **新規**: `app/api/vendor/coupons/[id]/route.ts` — GET詳細 / PUT更新 / DELETE削除
+- **新規**: `app/api/coupons/validate/route.ts` — POST検証（validateCoupon + calculateCouponDiscount使用、一般ユーザーアクセス可）
+- **変更**: `app/api/reservations/route.ts` — couponCode対応（検証→割引計算→totalAmount反映→coupon_id/coupon_code/coupon_discount保存）
+
+#### Phase 4: 予約フロー
+- **変更**: `app/(public)/book/page.tsx` — クーポンコード入力欄+「適用」ボタン追加、/api/coupons/validate検証、成功時にPrice Summaryに割引行表示、submit時にcouponCode送信
+- **変更**: `app/(vendor)/vendor/reservations/[id]/page.tsx` — COUPON_OPTIONSをdiscount_type対応モックに拡充（fixed/percentage）、割引計算をdiscount_typeに応じた動的計算に修正

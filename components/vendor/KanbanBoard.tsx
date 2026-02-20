@@ -46,6 +46,14 @@ interface KanbanBoardProps {
   items: KanbanItem[];
 }
 
+function isCurrentMonth(dateStr: string): boolean {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const parsed = new Date(dateStr.replace(/\//g, "-"));
+  return parsed.getFullYear() === year && parsed.getMonth() === month;
+}
+
 export function KanbanBoard({ items }: KanbanBoardProps) {
   const grouped: Record<string, KanbanItem[]> = {
     unconfirmed: [],
@@ -56,6 +64,7 @@ export function KanbanBoard({ items }: KanbanBoardProps) {
 
   items.forEach((item) => {
     const col = mapStatusToColumn(item.status);
+    if (col === "completed" && !isCurrentMonth(item.returnAt)) return;
     grouped[col].push(item);
   });
 

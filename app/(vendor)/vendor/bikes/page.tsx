@@ -288,7 +288,7 @@ const columns: VendorColumn<BikeRow>[] = [
 
 export default function VendorBikesListPage() {
   const [selectedStore, setSelectedStore] = useState("all");
-  const [viewMode, setViewMode] = useState<"table" | "grid">("table");
+  const [viewMode, setViewMode] = useState<"table" | "grid">("grid");
   const [bikes, setBikes] = useState<BikeRow[]>(initialMockBikes);
 
   const handlePublishChange = (id: string, isPublished: boolean) => {

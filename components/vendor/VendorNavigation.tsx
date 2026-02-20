@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Store, Users, CalendarDays, Bike, CreditCard,
   Calculator, BarChart3, Star, MessageSquare, TrendingUp, Bell, Settings,
   Clock, Heart, CalendarCheck, HardHat, Megaphone, FileDown, BookOpen,
-  Building2, JapaneseYen, ChevronRight,
+  Building2, JapaneseYen, ChevronRight, Ticket,
 } from "lucide-react";
 import { VENDOR_NAV_ITEMS, type NavItem } from "@/lib/constants";
 import { addRecentPage } from "@/lib/vendor-nav";
@@ -20,7 +20,7 @@ const iconMap: Record<string, React.ElementType> = {
   LayoutDashboard, Store, Users, CalendarDays, Bike, CreditCard,
   Calculator, BarChart3, Star, MessageSquare, TrendingUp, Bell, Settings,
   Clock, Heart, CalendarCheck, HardHat, Megaphone, FileDown, BookOpen,
-  Building2, JapaneseYen,
+  Building2, JapaneseYen, Ticket,
 };
 
 // ---- VendorStoreContext ----

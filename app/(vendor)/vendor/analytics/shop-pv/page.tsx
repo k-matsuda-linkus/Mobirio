@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download } from "lucide-react";
+import { Download, TrendingUp, TrendingDown } from "lucide-react";
 import { VendorPageHeader } from "@/components/vendor/VendorPageHeader";
 import { StoreSelector } from "@/components/vendor/StoreSelector";
 import { AnalyticsChart } from "@/components/vendor/AnalyticsChart";
@@ -39,12 +39,13 @@ export default function VendorShopPVPage() {
 
   const totalPrevYear = MOCK_PV_DATA.reduce((s, d) => s + d.prevYear, 0);
   const totalCurrentYear = MOCK_PV_DATA.reduce((s, d) => s + d.currentYear, 0);
+  const yoyRatio = totalPrevYear > 0 ? Math.round((totalCurrentYear / totalPrevYear) * 100) : 0;
 
   return (
     <div>
       <VendorPageHeader
-        title="店舗PV分析"
-        breadcrumbs={[{ label: "分析" }, { label: "店舗PV分析" }]}
+        title="店舗アクセス分析"
+        breadcrumbs={[{ label: "分析" }, { label: "店舗アクセス分析" }]}
       />
 
       {/* 店舗選択 */}
@@ -53,11 +54,11 @@ export default function VendorShopPVPage() {
       </div>
 
       {/* フィルターパネル */}
-      <div className="bg-surface border-t border-gray-200 p-[16px] mb-[16px]">
+      <div className="bg-white border border-gray-200 p-[16px] mb-[16px]">
         <div className="flex flex-wrap items-end gap-[16px]">
           {/* 分析単位セグメントトグル */}
           <div>
-            <label className="block text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-[6px]">分析単位</label>
+            <label className="block text-[11px] text-gray-400 mb-[4px]">分析単位</label>
             <div className="inline-flex border border-gray-200">
               {([
                 { value: "year", label: "年単位" },
@@ -83,7 +84,7 @@ export default function VendorShopPVPage() {
           {/* 年単位の場合: 対象年 */}
           {analysisUnit === "year" && (
             <div>
-              <label className="block text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-[6px]">対象年</label>
+              <label className="block text-[11px] text-gray-400 mb-[4px]">対象年</label>
               <select value={analysisYear} onChange={(e) => setAnalysisYear(e.target.value)} className={inputClass + " w-[100px]"}>
                 <option value="2025">2025年</option>
                 <option value="2026">2026年</option>
@@ -94,7 +95,7 @@ export default function VendorShopPVPage() {
           {/* 月単位の場合: 対象年月 */}
           {analysisUnit === "month" && (
             <div>
-              <label className="block text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-[6px]">対象年月</label>
+              <label className="block text-[11px] text-gray-400 mb-[4px]">対象年月</label>
               <div className="flex items-center gap-[4px]">
                 <select value={analysisYear} onChange={(e) => setAnalysisYear(e.target.value)} className={inputClass + " w-[100px]"}>
                   <option value="2025">2025年</option>
@@ -112,7 +113,7 @@ export default function VendorShopPVPage() {
           {/* 日単位の場合: 対象日 */}
           {analysisUnit === "day" && (
             <div>
-              <label className="block text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-[6px]">対象日</label>
+              <label className="block text-[11px] text-gray-400 mb-[4px]">対象日</label>
               <input
                 type="date"
                 value={analysisDate}
@@ -131,6 +132,31 @@ export default function VendorShopPVPage() {
             <Download className="w-[14px] h-[14px]" />
             CSV出力
           </button>
+        </div>
+      </div>
+
+      {/* サマリーKPIカード */}
+      <div className="grid grid-cols-3 gap-[16px] mb-[16px]">
+        <div className="bg-white border border-gray-200 p-[20px]">
+          <p className="text-[11px] text-gray-400 mb-[4px]">当年合計</p>
+          <p className="text-[26px] font-semibold tracking-tight">{totalCurrentYear.toLocaleString()}</p>
+        </div>
+        <div className="bg-white border border-gray-200 p-[20px]">
+          <p className="text-[11px] text-gray-400 mb-[4px]">前年合計</p>
+          <p className="text-[26px] font-semibold tracking-tight">{totalPrevYear.toLocaleString()}</p>
+        </div>
+        <div className="bg-white border border-gray-200 p-[20px]">
+          <p className="text-[11px] text-gray-400 mb-[4px]">前年比</p>
+          <div className="flex items-center gap-[8px]">
+            <p className={"text-[26px] font-semibold tracking-tight " + (yoyRatio >= 100 ? "text-accent" : "text-red-500")}>
+              {yoyRatio}%
+            </p>
+            {yoyRatio >= 100 ? (
+              <TrendingUp className="w-[20px] h-[20px] text-accent" />
+            ) : (
+              <TrendingDown className="w-[20px] h-[20px] text-red-500" />
+            )}
+          </div>
         </div>
       </div>
 
@@ -162,9 +188,9 @@ export default function VendorShopPVPage() {
       {activeTab === "chart" && (
         <AnalyticsChart
           data={MOCK_PV_DATA}
-          title="店舗PV推移"
+          title="店舗アクセス推移"
           showDeviceBreakdown={true}
-          valueLabel="PV"
+          valueLabel="閲覧数"
         />
       )}
 
@@ -175,13 +201,13 @@ export default function VendorShopPVPage() {
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="px-[12px] py-[10px] text-left text-xs font-medium text-gray-500">月</th>
-                <th className="px-[12px] py-[10px] text-right text-xs font-medium text-gray-500">前年PV</th>
-                <th className="px-[12px] py-[10px] text-right text-xs font-medium text-gray-500">当年PV</th>
+                <th className="px-[12px] py-[10px] text-right text-xs font-medium text-gray-500">前年閲覧数</th>
+                <th className="px-[12px] py-[10px] text-right text-xs font-medium text-gray-500">当年閲覧数</th>
                 <th className="px-[12px] py-[10px] text-right text-xs font-medium text-gray-500">前年比</th>
-                <th className="px-[12px] py-[10px] text-right text-xs font-medium text-gray-500">PC（前年）</th>
-                <th className="px-[12px] py-[10px] text-right text-xs font-medium text-gray-500">SP（前年）</th>
-                <th className="px-[12px] py-[10px] text-right text-xs font-medium text-gray-500">PC（当年）</th>
-                <th className="px-[12px] py-[10px] text-right text-xs font-medium text-gray-500">SP（当年）</th>
+                <th className="px-[12px] py-[10px] text-right text-xs font-medium text-gray-500">パソコン（前年）</th>
+                <th className="px-[12px] py-[10px] text-right text-xs font-medium text-gray-500">スマホ（前年）</th>
+                <th className="px-[12px] py-[10px] text-right text-xs font-medium text-gray-500">パソコン（当年）</th>
+                <th className="px-[12px] py-[10px] text-right text-xs font-medium text-gray-500">スマホ（当年）</th>
               </tr>
             </thead>
             <tbody>
@@ -232,12 +258,12 @@ export default function VendorShopPVPage() {
               <div>
                 <p className="text-sm text-gray-700 font-medium">{d.label}</p>
                 <p className="text-xs text-gray-400 mt-[2px]">
-                  PC: {(d.currentYearPc ?? 0).toLocaleString()} / SP: {(d.currentYearSp ?? 0).toLocaleString()}
+                  パソコン: {(d.currentYearPc ?? 0).toLocaleString()} / スマホ: {(d.currentYearSp ?? 0).toLocaleString()}
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">{d.currentYear.toLocaleString()} PV</p>
-                <p className="text-xs text-gray-400">前年: {d.prevYear.toLocaleString()} PV</p>
+                <p className="text-sm font-medium text-gray-900">{d.currentYear.toLocaleString()} 閲覧</p>
+                <p className="text-xs text-gray-400">前年: {d.prevYear.toLocaleString()} 閲覧</p>
               </div>
             </div>
           ))}

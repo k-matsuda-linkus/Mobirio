@@ -36,6 +36,12 @@ const STATUS_STYLES: Record<string, string> = {
   inspection_expired: "bg-red-100 text-red-600",
   inspection_expiring: "bg-orange-100 text-orange-700",
   inspection_ok: "bg-accent/10 text-accent",
+  // クーポンステータス
+  coupon_active: "bg-accent/10 text-accent",
+  coupon_scheduled: "bg-blue-100 text-blue-700",
+  coupon_expired: "bg-gray-200 text-gray-500",
+  coupon_disabled: "bg-gray-100 text-gray-400",
+  coupon_exhausted: "bg-orange-100 text-orange-700",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -74,6 +80,12 @@ const STATUS_LABELS: Record<string, string> = {
   inspection_expired: "期限切れ",
   inspection_expiring: "期限間近",
   inspection_ok: "有効",
+  // クーポンステータス
+  coupon_active: "配布中",
+  coupon_scheduled: "配布予定",
+  coupon_expired: "期限切れ",
+  coupon_disabled: "停止中",
+  coupon_exhausted: "枚数到達",
 };
 
 const STATUS_DESCRIPTIONS: Record<string, string> = {
@@ -112,6 +124,12 @@ const STATUS_DESCRIPTIONS: Record<string, string> = {
   inspection_expired: "車検の有効期限が切れています。速やかに車検を受けてください",
   inspection_expiring: "車検の有効期限が30日以内に迫っています",
   inspection_ok: "車検の有効期限内です",
+  // クーポンステータス
+  coupon_active: "有効期間内で配布中のクーポン",
+  coupon_scheduled: "有効期間の開始前のクーポン",
+  coupon_expired: "有効期限が切れたクーポン",
+  coupon_disabled: "手動で停止されたクーポン",
+  coupon_exhausted: "利用上限に達したクーポン",
 };
 
 interface StatusBadgeProps {

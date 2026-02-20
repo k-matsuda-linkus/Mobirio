@@ -37,8 +37,13 @@ export function BikeGridCard({
   const [imgError, setImgError] = useState(false);
   const isPublished = publishStatus === "published";
 
+  const detailHref = `/vendor/bikes/${id}/edit`;
+
   return (
-    <div className="bg-white border border-gray-200 hover:shadow-md transition-shadow">
+    <Link
+      href={detailHref}
+      className="block bg-white border border-gray-200 hover:shadow-md transition-shadow cursor-pointer"
+    >
       {/* 画像エリア */}
       <div className="relative aspect-video bg-gray-100 overflow-hidden">
         {image && !imgError ? (
@@ -66,23 +71,20 @@ export function BikeGridCard({
       {/* 本体 */}
       <div className="p-[12px]">
         <div className="text-xs text-gray-600">{storeName}</div>
-        <Link
-          href={`/vendor/bikes/${id}/edit`}
-          className="text-sm font-semibold text-accent hover:underline"
-        >
+        <span className="text-sm font-semibold text-accent">
           {vehicleName}
-        </Link>
+        </span>
         <div className="inline-flex gap-[8px] text-xs text-gray-700 mt-[4px]">
           <span>{displacement}</span>
           <span>{priceClass}</span>
         </div>
-        <div className="mt-[8px]">
+        <div className="mt-[8px]" onClick={(e) => e.preventDefault()}>
           <PublishToggle
             isPublished={isPublished}
             onChange={(value) => onPublishChange(id, value)}
           />
         </div>
       </div>
-    </div>
+    </Link>
   );
 }

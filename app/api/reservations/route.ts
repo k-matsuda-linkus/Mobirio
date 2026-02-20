@@ -3,7 +3,8 @@ import { requireAuth } from "@/lib/auth/requireAuth";
 import { checkAvailability } from "@/lib/booking/availability";
 import { validateBooking } from "@/lib/booking/validation";
 import { calculateRentalPrice, getCDWPriceForClass, getVehicleClassFromDisplacement } from "@/lib/booking/pricing";
-import type { RentalDuration, DbBike, Option, Reservation, ReservationOption, ReservationStatus } from "@/types/database";
+import { calculateCouponDiscount } from "@/lib/booking/coupon";
+import type { RentalDuration, DbBike, Option, Reservation, ReservationOption, ReservationStatus, Coupon } from "@/types/database";
 
 export async function GET(request: NextRequest) {
   const authResult = await requireAuth(request);
@@ -72,6 +73,7 @@ export async function POST(request: NextRequest) {
     options = [],
     cdw = false,
     notes,
+    couponCode,
   } = body;
 
   // Validation
@@ -171,7 +173,72 @@ export async function POST(request: NextRequest) {
   const cdwAmount = cdw ? cdwPerDay * days : 0;
   const nocAmount = 0; // NOCは事故時のみ — 予約時の料金に含めない
 
-  const totalAmount = baseAmount + optionAmount + cdwAmount + nocAmount;
+  // クーポン割引計算
+  let couponDiscount = 0;
+  let couponId: string | null = null;
+  let appliedCouponCode: string | null = null;
+
+  if (couponCode) {
+    // TODO: Replace with Supabase query once schema is applied
+    // モッククーポンDB検索
+    const mockCouponMap: Record<string, Coupon> = {
+      WELCOME10: {
+        id: "cpn-001",
+        vendor_id: vendorId,
+        code: "WELCOME10",
+        name: "初回10%OFFクーポン",
+        description: "初回ご利用のお客様向けクーポン",
+        discount_type: "percentage",
+        discount_value: 10,
+        max_discount: 2000,
+        min_order_amount: 0,
+        usage_limit: 100,
+        usage_count: 42,
+        per_user_limit: 1,
+        valid_from: "2026-01-01T00:00:00Z",
+        valid_until: "2026-12-31T23:59:59Z",
+        is_active: true,
+        target_bike_ids: [],
+        created_at: "2026-01-01T00:00:00Z",
+        updated_at: "2026-01-01T00:00:00Z",
+      },
+      SUMMER500: {
+        id: "cpn-002",
+        vendor_id: vendorId,
+        code: "SUMMER500",
+        name: "夏季500円OFFクーポン",
+        description: "夏季限定の割引クーポン",
+        discount_type: "fixed",
+        discount_value: 500,
+        max_discount: null,
+        min_order_amount: 3000,
+        usage_limit: 200,
+        usage_count: 200,
+        per_user_limit: 1,
+        valid_from: "2026-06-01T00:00:00Z",
+        valid_until: "2026-08-31T23:59:59Z",
+        is_active: true,
+        target_bike_ids: [],
+        created_at: "2026-05-01T00:00:00Z",
+        updated_at: "2026-05-01T00:00:00Z",
+      },
+    };
+
+    const coupon = mockCouponMap[couponCode] ?? null;
+
+    if (!coupon) {
+      return NextResponse.json(
+        { error: "Bad request", message: "無効なクーポンコードです" },
+        { status: 400 }
+      );
+    }
+
+    couponDiscount = calculateCouponDiscount(coupon, baseAmount);
+    couponId = coupon.id;
+    appliedCouponCode = coupon.code;
+  }
+
+  const totalAmount = baseAmount + optionAmount + cdwAmount + nocAmount - couponDiscount;
 
   // Create reservation
   const insertData = {
@@ -187,6 +254,9 @@ export async function POST(request: NextRequest) {
     cdw_amount: cdwAmount,
     cdw_enabled: cdw,
     noc_amount: nocAmount,
+    coupon_id: couponId,
+    coupon_code: appliedCouponCode,
+    coupon_discount: couponDiscount,
     total_amount: totalAmount,
     notes: notes || null,
   };

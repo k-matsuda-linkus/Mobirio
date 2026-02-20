@@ -96,6 +96,7 @@ export interface BookingFormData {
   endDatetime: string;
   options: string[];
   cdw: boolean;
+  couponCode?: string;
 }
 
 export interface PriceCalculation {

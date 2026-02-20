@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createAdminSupabaseClient } from '@/lib/supabase/server';
 
 /** 保険関連の全設定キー */
 const INSURANCE_KEYS = [
@@ -15,7 +15,7 @@ const INSURANCE_KEYS = [
 
 /** 任意保険 関連設定の取得 */
 export async function GET() {
-  const supabase = await createServerSupabaseClient();
+  const supabase = createAdminSupabaseClient();
 
   const { data, error } = await supabase
     .from('system_settings')
@@ -72,7 +72,7 @@ export async function PUT(request: NextRequest) {
     );
   }
 
-  const supabase = await createServerSupabaseClient();
+  const supabase = createAdminSupabaseClient();
   const updates: { key: string; value: string }[] = [];
 
   for (const [field, dbKey] of Object.entries(FIELD_TO_KEY)) {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download } from "lucide-react";
+import { Download, TrendingUp, TrendingDown } from "lucide-react";
 import { VendorPageHeader } from "@/components/vendor/VendorPageHeader";
 import { StoreSelector } from "@/components/vendor/StoreSelector";
 import { AnalyticsChart } from "@/components/vendor/AnalyticsChart";
@@ -113,8 +113,8 @@ export default function VendorBikePVPage() {
   return (
     <div>
       <VendorPageHeader
-        title="車両PV分析"
-        breadcrumbs={[{ label: "分析" }, { label: "車両PV分析" }]}
+        title="車両アクセス分析"
+        breadcrumbs={[{ label: "分析" }, { label: "車両アクセス分析" }]}
       />
 
       {/* 店舗選択 */}
@@ -123,11 +123,11 @@ export default function VendorBikePVPage() {
       </div>
 
       {/* フィルターパネル */}
-      <div className="bg-surface border-t border-gray-200 p-[16px] mb-[16px]">
+      <div className="bg-white border border-gray-200 p-[16px] mb-[16px]">
         <div className="flex flex-wrap items-end gap-[16px]">
           {/* 分析単位セグメントトグル */}
           <div>
-            <label className="block text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-[6px]">分析単位</label>
+            <label className="block text-[11px] text-gray-400 mb-[4px]">分析単位</label>
             <div className="inline-flex border border-gray-200">
               {([
                 { value: "year", label: "年単位" },
@@ -153,7 +153,7 @@ export default function VendorBikePVPage() {
           {/* 年単位の場合: 対象年 */}
           {analysisUnit === "year" && (
             <div>
-              <label className="block text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-[6px]">対象年</label>
+              <label className="block text-[11px] text-gray-400 mb-[4px]">対象年</label>
               <select value={analysisYear} onChange={(e) => setAnalysisYear(e.target.value)} className={inputClass + " w-[100px]"}>
                 <option value="2025">2025年</option>
                 <option value="2026">2026年</option>
@@ -164,7 +164,7 @@ export default function VendorBikePVPage() {
           {/* 月単位の場合: 対象年月 */}
           {analysisUnit === "month" && (
             <div>
-              <label className="block text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-[6px]">対象年月</label>
+              <label className="block text-[11px] text-gray-400 mb-[4px]">対象年月</label>
               <div className="flex items-center gap-[4px]">
                 <select value={analysisYear} onChange={(e) => setAnalysisYear(e.target.value)} className={inputClass + " w-[100px]"}>
                   <option value="2025">2025年</option>
@@ -182,7 +182,7 @@ export default function VendorBikePVPage() {
           {/* 日単位の場合: 対象日 */}
           {analysisUnit === "day" && (
             <div>
-              <label className="block text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-[6px]">対象日</label>
+              <label className="block text-[11px] text-gray-400 mb-[4px]">対象日</label>
               <input
                 type="date"
                 value={analysisDate}
@@ -206,15 +206,37 @@ export default function VendorBikePVPage() {
 
       {/* 車両別チャート */}
       <div className="space-y-[16px]">
-        {MOCK_VEHICLE_PV.map((vehicle) => (
-          <AnalyticsChart
-            key={vehicle.vehicleName}
-            data={vehicle.data}
-            title={`${vehicle.vehicleName}（${vehicle.registrationNo}）`}
-            showDeviceBreakdown={true}
-            valueLabel="PV"
-          />
-        ))}
+        {MOCK_VEHICLE_PV.map((vehicle) => {
+          const prevTotal = vehicle.data.reduce((s, d) => s + d.prevYear, 0);
+          const curTotal = vehicle.data.reduce((s, d) => s + d.currentYear, 0);
+          const ratio = prevTotal > 0 ? Math.round((curTotal / prevTotal) * 100) : 0;
+
+          return (
+            <div key={vehicle.vehicleName}>
+              {/* 車両別サマリーKPI */}
+              <div className="flex items-center gap-[16px] text-sm mb-[12px]">
+                <span className="text-gray-400">前年</span>
+                <span className="font-medium">{prevTotal.toLocaleString()}</span>
+                <span className="text-gray-400">当年</span>
+                <span className="font-medium">{curTotal.toLocaleString()}</span>
+                <span className="flex items-center gap-[4px]">
+                  {ratio >= 100 ? (
+                    <TrendingUp className="w-[14px] h-[14px] text-accent" />
+                  ) : (
+                    <TrendingDown className="w-[14px] h-[14px] text-red-500" />
+                  )}
+                  <span className={ratio >= 100 ? "text-accent" : "text-red-500"}>{ratio}%</span>
+                </span>
+              </div>
+              <AnalyticsChart
+                data={vehicle.data}
+                title={`${vehicle.vehicleName}（${vehicle.registrationNo}）`}
+                showDeviceBreakdown={true}
+                valueLabel="閲覧数"
+              />
+            </div>
+          );
+        })}
       </div>
     </div>
   );

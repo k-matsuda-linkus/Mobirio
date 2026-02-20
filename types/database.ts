@@ -25,6 +25,7 @@ export type PaymentSettlement = "unpaid" | "partial" | "paid" | "refunded";
 export type PayoutStatus = "pending" | "processing" | "completed" | "failed";
 export type NotificationType = "booking_confirmed" | "booking_cancelled" | "booking_reminder" | "review_request" | "payment_received" | "vendor_approved" | "system";
 export type VehicleClass = "ev" | "50" | "125" | "250" | "400" | "950" | "1100" | "1500";
+export type CouponDiscountType = "fixed" | "percentage";
 
 // ---------------------------------------------------------------------------
 // Database interface
@@ -1199,6 +1200,100 @@ export interface Database {
         Relationships: [];
       };
 
+      // 24. coupons
+      coupons: {
+        Row: {
+          id: string;
+          vendor_id: string;
+          code: string;
+          name: string;
+          description: string | null;
+          discount_type: CouponDiscountType;
+          discount_value: number;
+          max_discount: number | null;
+          min_order_amount: number;
+          usage_limit: number | null;
+          usage_count: number;
+          per_user_limit: number;
+          valid_from: string | null;
+          valid_until: string | null;
+          is_active: boolean;
+          target_bike_ids: string[];
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          vendor_id: string;
+          code: string;
+          name: string;
+          description?: string | null;
+          discount_type: CouponDiscountType;
+          discount_value: number;
+          max_discount?: number | null;
+          min_order_amount?: number;
+          usage_limit?: number | null;
+          usage_count?: number;
+          per_user_limit?: number;
+          valid_from?: string | null;
+          valid_until?: string | null;
+          is_active?: boolean;
+          target_bike_ids?: string[];
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          vendor_id?: string;
+          code?: string;
+          name?: string;
+          description?: string | null;
+          discount_type?: CouponDiscountType;
+          discount_value?: number;
+          max_discount?: number | null;
+          min_order_amount?: number;
+          usage_limit?: number | null;
+          usage_count?: number;
+          per_user_limit?: number;
+          valid_from?: string | null;
+          valid_until?: string | null;
+          is_active?: boolean;
+          target_bike_ids?: string[];
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+
+      // 25. coupon_usages
+      coupon_usages: {
+        Row: {
+          id: string;
+          coupon_id: string;
+          reservation_id: string;
+          user_id: string;
+          discount_amount: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          coupon_id: string;
+          reservation_id: string;
+          user_id: string;
+          discount_amount: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          coupon_id?: string;
+          reservation_id?: string;
+          user_id?: string;
+          discount_amount?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+
       // Also keep legacy alias for backward compat
       user_profiles: {
         Row: {
@@ -1274,3 +1369,5 @@ export type ShopReview = Tables<"shop_reviews">;
 export type VendorInquiry = Tables<"vendor_inquiries">;
 export type PageView = Tables<"page_views">;
 export type SystemSetting = Tables<"system_settings">;
+export type Coupon = Tables<"coupons">;
+export type CouponUsage = Tables<"coupon_usages">;

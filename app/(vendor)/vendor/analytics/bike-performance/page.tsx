@@ -107,8 +107,8 @@ export default function VendorBikePerformancePage() {
   return (
     <div>
       <VendorPageHeader
-        title="車両予約実績分析"
-        breadcrumbs={[{ label: "分析" }, { label: "車両予約実績分析" }]}
+        title="車両予約実績"
+        breadcrumbs={[{ label: "分析" }, { label: "車両予約実績" }]}
       />
 
       {/* 店舗選択 */}
@@ -117,12 +117,12 @@ export default function VendorBikePerformancePage() {
       </div>
 
       {/* フィルターパネル */}
-      <div className="bg-surface border-t border-gray-200 p-[16px] mb-[16px]">
+      <div className="bg-white border border-gray-200 p-[16px] mb-[16px]">
         <div className="space-y-[12px]">
           <div className="flex flex-wrap items-center gap-[24px]">
             {/* 日付条件セグメントトグル */}
             <div>
-              <label className="block text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-[6px]">日付条件</label>
+              <label className="block text-[11px] text-gray-400 mb-[4px]">日付条件</label>
               <div className="inline-flex border border-gray-200">
                 {([
                   { value: "reservation", label: "予約登録日" },
@@ -146,7 +146,7 @@ export default function VendorBikePerformancePage() {
             </div>
             {/* 分析単位セグメントトグル */}
             <div>
-              <label className="block text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-[6px]">分析単位</label>
+              <label className="block text-[11px] text-gray-400 mb-[4px]">分析単位</label>
               <div className="inline-flex border border-gray-200">
                 {([
                   { value: "year", label: "年単位" },
@@ -172,7 +172,7 @@ export default function VendorBikePerformancePage() {
           <div className="flex flex-wrap items-center gap-[24px]">
             {/* 有償/無償セグメントトグル */}
             <div>
-              <label className="block text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-[6px]">有償/無償</label>
+              <label className="block text-[11px] text-gray-400 mb-[4px]">有償/無償</label>
               <div className="inline-flex border border-gray-200">
                 {([
                   { value: "all", label: "すべて" },
@@ -196,7 +196,7 @@ export default function VendorBikePerformancePage() {
             </div>
             {/* 表示内容セグメントトグル */}
             <div>
-              <label className="block text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-[6px]">表示内容</label>
+              <label className="block text-[11px] text-gray-400 mb-[4px]">表示内容</label>
               <div className="inline-flex border border-gray-200">
                 {([
                   { value: "amount", label: "金額" },
@@ -219,7 +219,7 @@ export default function VendorBikePerformancePage() {
             </div>
             {/* 対象年 */}
             <div>
-              <label className="block text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-[6px]">対象年</label>
+              <label className="block text-[11px] text-gray-400 mb-[4px]">対象年</label>
               <select value={analysisYear} onChange={(e) => setAnalysisYear(e.target.value)} className={inputClass + " w-[100px]"}>
                 <option value="2025">2025年</option>
                 <option value="2026">2026年</option>
