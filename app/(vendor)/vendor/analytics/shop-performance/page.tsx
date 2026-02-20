@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download } from "lucide-react";
+import { Download, ArrowRight, TrendingUp, TrendingDown } from "lucide-react";
 import { VendorPageHeader } from "@/components/vendor/VendorPageHeader";
 import { StoreSelector } from "@/components/vendor/StoreSelector";
 import { AnalyticsChart } from "@/components/vendor/AnalyticsChart";
@@ -49,106 +49,115 @@ export default function VendorShopPerformancePage() {
         breadcrumbs={[{ label: "分析" }, { label: "店舗予約実績分析" }]}
       />
 
-      {/* Store selector */}
+      {/* 店舗選択 */}
       <div className="mb-[16px]">
         <StoreSelector stores={STORES} selectedId={selectedStore} onChange={setSelectedStore} />
       </div>
 
-      {/* Filters */}
-      <div className="bg-white border border-gray-200 p-[16px] mb-[16px]">
+      {/* フィルターパネル */}
+      <div className="bg-surface border-t border-gray-200 p-[16px] mb-[16px]">
         <div className="space-y-[12px]">
           <div className="flex flex-wrap items-center gap-[24px]">
+            {/* 日付条件セグメントトグル */}
             <div>
-              <label className="block text-xs text-gray-500 mb-[4px]">日付条件</label>
-              <div className="flex items-center gap-[12px]">
+              <label className="block text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-[6px]">日付条件</label>
+              <div className="inline-flex border border-gray-200">
                 {([
                   { value: "reservation", label: "予約登録日" },
                   { value: "departure", label: "出発日" },
                   { value: "return", label: "返却日" },
                 ] as const).map((opt) => (
-                  <label key={opt.value} className="flex items-center gap-[4px] text-sm text-gray-700 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="dateCondition"
-                      value={opt.value}
-                      checked={dateCondition === opt.value}
-                      onChange={() => setDateCondition(opt.value)}
-                      className="accent-accent"
-                    />
+                  <button
+                    key={opt.value}
+                    onClick={() => setDateCondition(opt.value)}
+                    className={
+                      "px-[14px] py-[6px] text-[13px] transition-colors " +
+                      (dateCondition === opt.value
+                        ? "bg-accent text-white"
+                        : "bg-white text-gray-600 hover:bg-gray-50")
+                    }
+                  >
                     {opt.label}
-                  </label>
+                  </button>
                 ))}
               </div>
             </div>
+            {/* 分析単位セグメントトグル */}
             <div>
-              <label className="block text-xs text-gray-500 mb-[4px]">分析単位</label>
-              <div className="flex items-center gap-[12px]">
+              <label className="block text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-[6px]">分析単位</label>
+              <div className="inline-flex border border-gray-200">
                 {([
                   { value: "year", label: "年単位" },
                   { value: "month", label: "月単位" },
                 ] as const).map((opt) => (
-                  <label key={opt.value} className="flex items-center gap-[4px] text-sm text-gray-700 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="analysisUnit"
-                      value={opt.value}
-                      checked={analysisUnit === opt.value}
-                      onChange={() => setAnalysisUnit(opt.value)}
-                      className="accent-accent"
-                    />
+                  <button
+                    key={opt.value}
+                    onClick={() => setAnalysisUnit(opt.value)}
+                    className={
+                      "px-[14px] py-[6px] text-[13px] transition-colors " +
+                      (analysisUnit === opt.value
+                        ? "bg-accent text-white"
+                        : "bg-white text-gray-600 hover:bg-gray-50")
+                    }
+                  >
                     {opt.label}
-                  </label>
+                  </button>
                 ))}
               </div>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-[24px]">
+            {/* 有償/無償セグメントトグル */}
             <div>
-              <label className="block text-xs text-gray-500 mb-[4px]">有償/無償</label>
-              <div className="flex items-center gap-[12px]">
+              <label className="block text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-[6px]">有償/無償</label>
+              <div className="inline-flex border border-gray-200">
                 {([
                   { value: "all", label: "すべて" },
                   { value: "paid", label: "有償" },
                   { value: "free", label: "無償" },
                 ] as const).map((opt) => (
-                  <label key={opt.value} className="flex items-center gap-[4px] text-sm text-gray-700 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="paymentType"
-                      value={opt.value}
-                      checked={paymentType === opt.value}
-                      onChange={() => setPaymentType(opt.value)}
-                      className="accent-accent"
-                    />
+                  <button
+                    key={opt.value}
+                    onClick={() => setPaymentType(opt.value)}
+                    className={
+                      "px-[14px] py-[6px] text-[13px] transition-colors " +
+                      (paymentType === opt.value
+                        ? "bg-accent text-white"
+                        : "bg-white text-gray-600 hover:bg-gray-50")
+                    }
+                  >
                     {opt.label}
-                  </label>
+                  </button>
                 ))}
               </div>
             </div>
+            {/* 表示内容セグメントトグル */}
             <div>
-              <label className="block text-xs text-gray-500 mb-[4px]">表示内容</label>
-              <div className="flex items-center gap-[12px]">
+              <label className="block text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-[6px]">表示内容</label>
+              <div className="inline-flex border border-gray-200">
                 {([
                   { value: "amount", label: "金額" },
                   { value: "count", label: "件数" },
                 ] as const).map((opt) => (
-                  <label key={opt.value} className="flex items-center gap-[4px] text-sm text-gray-700 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="displayType"
-                      value={opt.value}
-                      checked={displayType === opt.value}
-                      onChange={() => setDisplayType(opt.value)}
-                      className="accent-accent"
-                    />
+                  <button
+                    key={opt.value}
+                    onClick={() => setDisplayType(opt.value)}
+                    className={
+                      "px-[14px] py-[6px] text-[13px] transition-colors " +
+                      (displayType === opt.value
+                        ? "bg-accent text-white"
+                        : "bg-white text-gray-600 hover:bg-gray-50")
+                    }
+                  >
                     {opt.label}
-                  </label>
+                  </button>
                 ))}
               </div>
             </div>
+            {/* 対象年 */}
             <div>
-              <label className="block text-xs text-gray-500 mb-[4px]">対象年</label>
+              <label className="block text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-[6px]">対象年</label>
               <select value={analysisYear} onChange={(e) => setAnalysisYear(e.target.value)} className={inputClass + " w-[100px]"}>
                 <option value="2025">2025年</option>
                 <option value="2026">2026年</option>
@@ -157,9 +166,11 @@ export default function VendorShopPerformancePage() {
           </div>
 
           <div className="flex items-center gap-[8px] pt-[4px]">
-            <button className="bg-accent text-white px-[16px] py-[7px] text-sm hover:bg-accent/90">
+            {/* 検索ボタン */}
+            <button className="bg-gray-800 text-white px-[16px] py-[7px] text-sm hover:bg-gray-700 transition-colors">
               検索
             </button>
+            {/* CSV出力ボタン */}
             <button className="flex items-center gap-[6px] border border-gray-300 bg-white px-[14px] py-[7px] text-sm text-gray-700 hover:bg-gray-50">
               <Download className="w-[14px] h-[14px]" />
               CSV出力
@@ -168,50 +179,70 @@ export default function VendorShopPerformancePage() {
         </div>
       </div>
 
-      {/* Annual totals */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-[12px] mb-[16px]">
+      {/* サマリーカード（改善版） */}
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr_auto_1fr] gap-[12px] items-center mb-[16px]">
+        {/* 前年 年間合計 */}
         <div className="bg-white border border-gray-200 p-[16px]">
-          <p className="text-xs text-gray-500 mb-[4px]">前年 年間合計</p>
-          <p className="text-xl font-medium text-gray-900">
+          <p className="text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-[6px]">前年 年間合計</p>
+          <p className="text-[28px] font-semibold text-gray-900">
             &yen;{totalPrevYear.toLocaleString()}
           </p>
         </div>
+        {/* 比較インジケータ矢印 */}
+        <div className="hidden sm:flex items-center justify-center">
+          <ArrowRight className="w-[20px] h-[20px] text-gray-400" />
+        </div>
+        {/* 当年 年間合計 */}
         <div className="bg-white border border-gray-200 p-[16px]">
-          <p className="text-xs text-gray-500 mb-[4px]">当年 年間合計</p>
-          <p className="text-xl font-medium text-gray-900">
+          <p className="text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-[6px]">当年 年間合計</p>
+          <p className="text-[28px] font-semibold text-gray-900">
             &yen;{totalCurrentYear.toLocaleString()}
           </p>
         </div>
+        {/* 比較インジケータ矢印 */}
+        <div className="hidden sm:flex items-center justify-center">
+          <ArrowRight className="w-[20px] h-[20px] text-gray-400" />
+        </div>
+        {/* 前年比 */}
         <div className="bg-white border border-gray-200 p-[16px]">
-          <p className="text-xs text-gray-500 mb-[4px]">前年比</p>
-          <p className={"text-xl font-medium " + (yoyRatio >= 100 ? "text-accent" : "text-red-500")}>
-            {yoyRatio}%
-          </p>
+          <p className="text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-[6px]">前年比</p>
+          <div className="flex items-center gap-[8px]">
+            <p className={"text-[28px] font-semibold " + (yoyRatio >= 100 ? "text-accent" : "text-red-500")}>
+              {yoyRatio}%
+            </p>
+            {yoyRatio >= 100 ? (
+              <TrendingUp className="w-[20px] h-[20px] text-accent" />
+            ) : (
+              <TrendingDown className="w-[20px] h-[20px] text-red-500" />
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center border-b border-gray-200 mb-[16px]">
-        {([
-          { key: "chart", label: "グラフ" },
-          { key: "list", label: "リスト" },
-        ] as const).map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={
-              "px-[20px] py-[10px] text-sm font-medium border-b-2 -mb-[1px] " +
-              (activeTab === tab.key
-                ? "border-accent text-accent"
-                : "border-transparent text-gray-500 hover:text-gray-700")
-            }
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* セグメント型タブ */}
+      <div className="mb-[16px]">
+        <div className="inline-flex bg-gray-100 p-[3px]">
+          {([
+            { key: "chart", label: "グラフ" },
+            { key: "list", label: "リスト" },
+          ] as const).map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={
+                "px-[16px] py-[6px] text-[13px] font-medium transition-colors " +
+                (activeTab === tab.key
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700")
+              }
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Content */}
+      {/* コンテンツ: グラフ */}
       {activeTab === "chart" && (
         <AnalyticsChart
           data={MOCK_PERFORMANCE_DATA}
@@ -220,6 +251,7 @@ export default function VendorShopPerformancePage() {
         />
       )}
 
+      {/* コンテンツ: リスト */}
       {activeTab === "list" && (
         <div className="bg-white border border-gray-200 overflow-x-auto">
           <table className="w-full">

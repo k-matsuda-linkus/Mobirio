@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Search, Download, Plus, GripVertical, Copy } from "lucide-react";
+import { Search, Download, Plus, GripVertical, Copy, HardHat } from "lucide-react";
 import { VendorPageHeader } from "@/components/vendor/VendorPageHeader";
 import { VendorDataTable, type VendorColumn } from "@/components/vendor/VendorDataTable";
 import { StoreSelector } from "@/components/vendor/StoreSelector";
 import { StatusBadge } from "@/components/vendor/StatusBadge";
+import { EmptyState } from "@/components/vendor/EmptyState";
 
 interface GearRow {
   id: string;
@@ -95,7 +96,8 @@ const mockGear: GearRow[] = [
   },
 ];
 
-const columns: VendorColumn<GearRow>[] = [
+function useGearColumns(onDuplicate: (item: GearRow) => void): VendorColumn<GearRow>[] {
+  return [
   {
     key: "displayOrder",
     label: "表示順",
@@ -167,23 +169,44 @@ const columns: VendorColumn<GearRow>[] = [
     key: "copy",
     label: "",
     width: "w-[80px]",
-    render: () => (
+    render: (item) => (
       <button
         onClick={(e) => {
           e.stopPropagation();
-          alert("コピーしました");
+          onDuplicate(item);
         }}
         className="flex items-center gap-[4px] text-xs border border-gray-300 px-[10px] py-[4px] hover:bg-gray-50 whitespace-nowrap"
       >
         <Copy className="w-[12px] h-[12px]" />
-        コピー
+        複製
       </button>
     ),
   },
 ];
+}
 
 export default function VendorGearListPage() {
   const [selectedStore, setSelectedStore] = useState("all");
+  const [gearList, setGearList] = useState<GearRow[]>(mockGear);
+
+  const handleDuplicate = (item: GearRow) => {
+    const newId = String(Date.now());
+    const maxOrder = Math.max(...gearList.map((g) => g.displayOrder), 0);
+    const now = new Date();
+    const ts = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    const duplicated: GearRow = {
+      ...item,
+      id: newId,
+      displayOrder: maxOrder + 1,
+      createdAt: ts,
+      hasReservation: false,
+      publishStatus: "unpublished",
+      gearTypeName: item.gearTypeName + "（コピー）",
+    };
+    setGearList((prev) => [...prev, duplicated]);
+  };
+
+  const columns = useGearColumns(handleDuplicate);
 
   return (
     <div>
@@ -216,7 +239,17 @@ export default function VendorGearListPage() {
         }
       />
 
-      <VendorDataTable columns={columns} data={mockGear} pageSize={20} />
+      {gearList.length === 0 ? (
+        <EmptyState
+          icon={HardHat}
+          title="ライダーズギアがありません"
+          description="ヘルメットやグローブなどのギアを登録しましょう。"
+          actionLabel="ギアを登録する"
+          actionHref="/vendor/gear/new"
+        />
+      ) : (
+        <VendorDataTable columns={columns} data={gearList} pageSize={20} />
+      )}
     </div>
   );
 }

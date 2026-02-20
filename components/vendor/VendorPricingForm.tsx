@@ -8,7 +8,7 @@ type Props = {
   vendorId: string;
   onSubmit: (rules: PricingRule[], validFrom: string, validTo: string) => void;
 };
-const inputCls = "w-full border border-gray-200 bg-white px-[12px] py-[10px] text-sm focus:border-[#2D7D6F] focus:outline-none";
+const inputCls = "w-full border border-gray-200 bg-white px-[12px] py-[10px] text-sm focus:border-accent focus:outline-none";
 
 export default function VendorPricingForm({ bikeId, vendorId, onSubmit }: Props) {
   const [prices, setPrices] = useState<Record<string, number>>({});

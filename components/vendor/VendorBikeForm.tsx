@@ -20,7 +20,7 @@ type BikeFormData = {
 };
 
 type Props = { initialData?: Partial<BikeFormData>; onSubmit: (d: BikeFormData) => void; };
-const inputCls = "w-full border border-gray-200 bg-white px-[12px] py-[10px] text-sm focus:border-[#2D7D6F] focus:outline-none";
+const inputCls = "w-full border border-gray-200 bg-white px-[12px] py-[10px] text-sm focus:border-accent focus:outline-none";
 const labelCls = "block text-xs font-medium text-gray-500 mb-[4px]";
 export default function VendorBikeForm({ initialData, onSubmit }: Props) {
   const [form, setForm] = useState<BikeFormData>({

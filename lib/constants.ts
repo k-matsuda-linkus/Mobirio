@@ -114,7 +114,7 @@ export const VEHICLE_CLASSES = [
 
 export const RESERVATION_STATUSES = [
   { value: "pending", label: "申請中", color: "bg-gray-200 text-gray-700" },
-  { value: "confirmed", label: "確定", color: "bg-[#2D7D6F]/10 text-[#2D7D6F]" },
+  { value: "confirmed", label: "確定", color: "bg-accent/10 text-accent" },
   { value: "in_use", label: "利用中", color: "bg-black text-white" },
   { value: "completed", label: "完了", color: "bg-gray-100 text-gray-500" },
   { value: "cancelled", label: "キャンセル", color: "bg-gray-100 text-gray-400" },
@@ -153,6 +153,8 @@ export const BIKE_SORT_OPTIONS = [
 export const LAYOUT = {
   headerHeight: 70,
   sidebarWidth: 260,
+  iconRailWidth: 60,
+  topBarHeight: 56,
   sectionPadding: "py-[60px] md:py-[80px]",
   containerPadding: "px-[20px] md:px-[30px] lg:px-[50px]",
   maxWidth: "max-w-[1200px]",

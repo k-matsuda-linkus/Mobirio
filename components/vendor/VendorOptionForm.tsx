@@ -16,7 +16,7 @@ type Props = {
   onSubmit: (data: OptionFormData) => void;
 };
 
-const inputCls = "w-full border border-gray-200 bg-white px-[12px] py-[10px] text-sm focus:border-[#2D7D6F] focus:outline-none";
+const inputCls = "w-full border border-gray-200 bg-white px-[12px] py-[10px] text-sm focus:border-accent focus:outline-none";
 const labelCls = "block text-xs font-medium text-gray-500 mb-[4px]";
 
 export default function VendorOptionForm({ initialData, onSubmit }: Props) {
@@ -57,7 +57,7 @@ export default function VendorOptionForm({ initialData, onSubmit }: Props) {
         <div><label className={labelCls}>利用毎料金 (円)</label><input type="number" className={inputCls} value={form.price_per_use} onChange={(e) => update("price_per_use", Number(e.target.value))} /></div>
       </div>
       <div className="flex items-center gap-[8px]">
-        <button type="button" onClick={() => update("is_active", !form.is_active)} className={"relative inline-flex h-[24px] w-[44px] items-center transition-colors " + (form.is_active ? "bg-[#2D7D6F]" : "bg-gray-200")}>
+        <button type="button" onClick={() => update("is_active", !form.is_active)} className={"relative inline-flex h-[24px] w-[44px] items-center transition-colors " + (form.is_active ? "bg-accent" : "bg-gray-200")}>
           <span className={"inline-block h-[20px] w-[20px] bg-white transition-transform " + (form.is_active ? "translate-x-[22px]" : "translate-x-[2px]")} />
         </button>
         <span className="text-sm text-gray-600">{form.is_active ? "有効" : "無効"}</span>

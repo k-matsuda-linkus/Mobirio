@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Download } from "lucide-react";
+import { Download, Star } from "lucide-react";
 import { VendorPageHeader } from "@/components/vendor/VendorPageHeader";
 import { VendorSearchBar } from "@/components/vendor/VendorSearchBar";
 import { VendorDataTable, type VendorColumn } from "@/components/vendor/VendorDataTable";
 import { StatusBadge } from "@/components/vendor/StatusBadge";
+import { EmptyState } from "@/components/vendor/EmptyState";
 
 interface ReviewRow {
   id: string;
@@ -178,7 +179,15 @@ export default function VendorReviewsListPage() {
         </div>
       </VendorSearchBar>
 
-      <VendorDataTable columns={columns} data={mockReviews} pageSize={20} />
+      {mockReviews.length === 0 ? (
+        <EmptyState
+          icon={Star}
+          title="クチコミがありません"
+          description="お客様からのクチコミが投稿されると、ここに表示されます。"
+        />
+      ) : (
+        <VendorDataTable columns={columns} data={mockReviews} pageSize={20} />
+      )}
     </div>
   );
 }

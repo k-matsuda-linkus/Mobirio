@@ -809,28 +809,28 @@ export default function BikeEditPage() {
             <p className="text-xs font-medium text-gray-600 mb-[6px]">申込に必要な情報</p>
             <div className="grid grid-cols-2 gap-x-[16px] gap-y-[4px] text-xs text-gray-500">
               <div className="flex items-center gap-[6px]">
-                <span className={store ? "text-[#2D7D6F]" : "text-red-400"}>{store ? "✓" : "○"}</span>
+                <span className={store ? "text-accent" : "text-red-400"}>{store ? "✓" : "○"}</span>
                 店舗
               </div>
               <div className="flex items-center gap-[6px]">
-                <span className={regArea && regKana && regNumber ? "text-[#2D7D6F]" : "text-red-400"}>
+                <span className={regArea && regKana && regNumber ? "text-accent" : "text-red-400"}>
                   {regArea && regKana && regNumber ? "✓" : "○"}
                 </span>
                 登録No
               </div>
               <div className="flex items-center gap-[6px]">
-                <span className={chassisNumber ? "text-[#2D7D6F]" : "text-red-400"}>{chassisNumber ? "✓" : "○"}</span>
+                <span className={chassisNumber ? "text-accent" : "text-red-400"}>{chassisNumber ? "✓" : "○"}</span>
                 車台番号
               </div>
               <div className="flex items-center gap-[6px]">
-                <span className={inspectionFile.length > 0 ? "text-[#2D7D6F]" : "text-red-400"}>
+                <span className={inspectionFile.length > 0 ? "text-accent" : "text-red-400"}>
                   {inspectionFile.length > 0 ? "✓" : "○"}
                 </span>
                 車検証ファイル
               </div>
               {hasExternalInsurance && (
                 <div className="flex items-center gap-[6px]">
-                  <span className={externalInsuranceFile.length > 0 ? "text-[#2D7D6F]" : "text-red-400"}>
+                  <span className={externalInsuranceFile.length > 0 ? "text-accent" : "text-red-400"}>
                     {externalInsuranceFile.length > 0 ? "✓" : "○"}
                   </span>
                   他社保険証
@@ -867,9 +867,6 @@ export default function BikeEditPage() {
                   onChange={setExternalInsuranceFile}
                   label="保険証をアップロード"
                 />
-                <p className="text-xs text-gray-400 mt-[4px]">
-                  PDF・画像ファイル対応
-                </p>
               </div>
             )}
           </div>
@@ -884,9 +881,6 @@ export default function BikeEditPage() {
             onChange={setInspectionFile}
             label="ファイルをアップロード"
           />
-          <p className="text-xs text-gray-400 mt-[4px]">
-            PDF・画像ファイルをアップロードしてください
-          </p>
         </div>
 
         {/* 10. 各種装備設定 */}

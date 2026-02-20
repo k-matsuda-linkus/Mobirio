@@ -14,7 +14,7 @@ export default function VendorStatsCard({ title, value, subtitle, trend }: Props
       <p className="mt-[8px] text-3xl font-light text-black">{value}</p>
       {subtitle && <p className="mt-[4px] text-sm text-gray-500">{subtitle}</p>}
       {trend && (
-        <div className={"mt-[8px] flex items-center gap-[4px] text-sm " + (trend.positive ? "text-[#2D7D6F]" : "text-gray-500")}>
+        <div className={"mt-[8px] flex items-center gap-[4px] text-sm " + (trend.positive ? "text-accent" : "text-gray-500")}>
           {trend.positive ? <ArrowUp className="h-[14px] w-[14px]" /> : <ArrowDown className="h-[14px] w-[14px]" />}
           <span>{Math.abs(trend.value)}%</span>
         </div>

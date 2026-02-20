@@ -2,11 +2,28 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Search, Download, Plus, GripVertical, Image as ImageIcon } from "lucide-react";
+import { Search, Download, Plus, GripVertical, Image as ImageIcon, List, LayoutGrid } from "lucide-react";
 import { VendorPageHeader } from "@/components/vendor/VendorPageHeader";
 import { VendorDataTable, type VendorColumn } from "@/components/vendor/VendorDataTable";
 import { StoreSelector } from "@/components/vendor/StoreSelector";
 import { StatusBadge } from "@/components/vendor/StatusBadge";
+import { ViewToggle } from "@/components/vendor/ViewToggle";
+import { BikeGridView } from "@/components/vendor/BikeGridView";
+import { EmptyState } from "@/components/vendor/EmptyState";
+import { Bike as BikeIcon } from "lucide-react";
+
+function getInspectionStatus(expiryDate?: string): string | null {
+  if (!expiryDate) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const expiry = new Date(expiryDate);
+  expiry.setHours(0, 0, 0, 0);
+  const diffMs = expiry.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) return "inspection_expired";
+  if (diffDays <= 30) return "inspection_expiring";
+  return "inspection_ok";
+}
 
 interface BikeRow {
   id: string;
@@ -21,6 +38,7 @@ interface BikeRow {
   insurance: string;
   publishStatus: string;
   displayOrder: number;
+  inspectionExpiry?: string;
 }
 
 const mockStores = [
@@ -29,7 +47,9 @@ const mockStores = [
   { id: "s-002", name: "鹿児島支店" },
 ];
 
-const mockBikes: BikeRow[] = [
+const utilizationRates: (number | undefined)[] = [85, 62, 91, 45, 78, 55, 88, 30];
+
+const initialMockBikes: BikeRow[] = [
   {
     id: "1",
     image: "/images/bikes/cb400sf.jpg",
@@ -43,6 +63,7 @@ const mockBikes: BikeRow[] = [
     insurance: "active",
     publishStatus: "published",
     displayOrder: 1,
+    inspectionExpiry: "2026-06-30",
   },
   {
     id: "2",
@@ -71,6 +92,7 @@ const mockBikes: BikeRow[] = [
     insurance: "active",
     publishStatus: "published",
     displayOrder: 3,
+    inspectionExpiry: "2026-03-15",
   },
   {
     id: "4",
@@ -85,6 +107,7 @@ const mockBikes: BikeRow[] = [
     insurance: "active",
     publishStatus: "unpublished",
     displayOrder: 4,
+    inspectionExpiry: "2026-04-20",
   },
   {
     id: "5",
@@ -113,6 +136,7 @@ const mockBikes: BikeRow[] = [
     insurance: "active",
     publishStatus: "published",
     displayOrder: 6,
+    inspectionExpiry: "2026-05-10",
   },
   {
     id: "7",
@@ -127,6 +151,7 @@ const mockBikes: BikeRow[] = [
     insurance: "active",
     publishStatus: "published",
     displayOrder: 7,
+    inspectionExpiry: "2026-08-15",
   },
   {
     id: "8",
@@ -228,6 +253,20 @@ const columns: VendorColumn<BikeRow>[] = [
     render: (item) => <StatusBadge status={item.insurance} />,
   },
   {
+    key: "inspectionExpiry",
+    label: "車検期限",
+    render: (item) => {
+      if (!item.inspectionExpiry) return <span className="text-xs text-gray-300">-</span>;
+      const status = getInspectionStatus(item.inspectionExpiry);
+      return (
+        <div className="text-xs">
+          <div className="text-gray-600">{item.inspectionExpiry}</div>
+          {status && <StatusBadge status={status} />}
+        </div>
+      );
+    },
+  },
+  {
     key: "publishStatus",
     label: "公開状況",
     render: (item) => <StatusBadge status={item.publishStatus} />,
@@ -249,6 +288,30 @@ const columns: VendorColumn<BikeRow>[] = [
 
 export default function VendorBikesListPage() {
   const [selectedStore, setSelectedStore] = useState("all");
+  const [viewMode, setViewMode] = useState<"table" | "grid">("table");
+  const [bikes, setBikes] = useState<BikeRow[]>(initialMockBikes);
+
+  const handlePublishChange = (id: string, isPublished: boolean) => {
+    console.log(`車両ID: ${id} → ${isPublished ? "公開" : "非公開"}`);
+    setBikes((prev) =>
+      prev.map((bike) =>
+        bike.id === id
+          ? { ...bike, publishStatus: isPublished ? "published" : "unpublished" }
+          : bike
+      )
+    );
+  };
+
+  const gridBikes = bikes.map((bike, index) => ({
+    id: bike.id,
+    image: bike.image,
+    vehicleName: bike.vehicleName,
+    storeName: bike.storeName,
+    displacement: bike.displacement,
+    priceClass: bike.priceClass,
+    publishStatus: bike.publishStatus,
+    utilizationRate: utilizationRates[index],
+  }));
 
   return (
     <div>
@@ -281,7 +344,30 @@ export default function VendorBikesListPage() {
         }
       />
 
-      <VendorDataTable columns={columns} data={mockBikes} pageSize={20} />
+      <div className="mb-[16px] px-[16px] py-[8px]">
+        <ViewToggle
+          views={[
+            { key: "table", label: "テーブル", icon: List },
+            { key: "grid", label: "グリッド", icon: LayoutGrid },
+          ]}
+          activeView={viewMode}
+          onChange={(key) => setViewMode(key as "table" | "grid")}
+        />
+      </div>
+
+      {bikes.length === 0 ? (
+        <EmptyState
+          icon={BikeIcon}
+          title="車両がありません"
+          description="車両を登録して、レンタル予約の受付を開始しましょう。"
+          actionLabel="車両を登録する"
+          actionHref="/vendor/bikes/new"
+        />
+      ) : viewMode === "table" ? (
+        <VendorDataTable columns={columns} data={bikes} pageSize={20} />
+      ) : (
+        <BikeGridView bikes={gridBikes} onPublishChange={handlePublishChange} />
+      )}
     </div>
   );
 }

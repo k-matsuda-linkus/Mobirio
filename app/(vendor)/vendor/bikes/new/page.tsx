@@ -368,9 +368,6 @@ export default function BikeNewPage() {
             onChange={setInspectionFile}
             label="ファイルをアップロード"
           />
-          <p className="text-xs text-gray-400 mt-[4px]">
-            PDF・画像ファイルをアップロードしてください
-          </p>
         </div>
 
         {/* 各種装備設定 */}

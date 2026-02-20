@@ -20,7 +20,7 @@ const statusBreakdown = [
 
 const statusColors: Record<string, string> = {
   "完了": "bg-gray-100 text-gray-600",
-  "確認済": "bg-[#2D7D6F]/10 text-[#2D7D6F]",
+  "確認済": "bg-accent/10 text-accent",
   "利用中": "bg-blue-50 text-blue-600",
   "キャンセル": "bg-red-50 text-red-600",
   "ノーショー": "bg-amber-50 text-amber-600",

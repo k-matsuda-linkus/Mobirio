@@ -1,12 +1,14 @@
+import { RichTooltip } from "./RichTooltip";
+
 const STATUS_STYLES: Record<string, string> = {
-  confirmed: "bg-[#2D7D6F]/10 text-[#2D7D6F]",
+  confirmed: "bg-accent/10 text-accent",
   unconfirmed: "bg-orange-100 text-orange-700",
   pending: "bg-gray-200 text-gray-700",
   responding: "bg-blue-100 text-blue-700",
   resolved: "bg-green-100 text-green-700",
-  published: "bg-[#2D7D6F]/10 text-[#2D7D6F]",
+  published: "bg-accent/10 text-accent",
   unpublished: "bg-gray-100 text-gray-400",
-  active: "bg-[#2D7D6F]/10 text-[#2D7D6F]",
+  active: "bg-accent/10 text-accent",
   inactive: "bg-gray-100 text-gray-400",
   in_use: "bg-black text-white",
   completed: "bg-gray-100 text-gray-500",
@@ -15,21 +17,25 @@ const STATUS_STYLES: Record<string, string> = {
   development: "bg-orange-100 text-orange-600",
   insurance_none: "bg-gray-100 text-gray-400",
   insurance_applying: "bg-amber-100 text-amber-700",
-  insurance_active: "bg-[#2D7D6F]/10 text-[#2D7D6F]",
+  insurance_active: "bg-accent/10 text-accent",
   insurance_cancelling: "bg-red-100 text-red-600",
   insurance_cancelled: "bg-gray-200 text-gray-500",
   archived: "bg-gray-200 text-gray-500",
   // 決済ステータス (PaymentStatus)
   pay_pending: "bg-orange-100 text-orange-700",
-  pay_completed: "bg-[#2D7D6F]/10 text-[#2D7D6F]",
+  pay_completed: "bg-accent/10 text-accent",
   pay_failed: "bg-red-100 text-red-600",
   pay_refunded: "bg-gray-200 text-gray-500",
   pay_partially_refunded: "bg-amber-100 text-amber-700",
   // 決済状況 (PaymentSettlement)
   unpaid: "bg-orange-100 text-orange-700",
   partial: "bg-blue-100 text-blue-700",
-  paid: "bg-[#2D7D6F]/10 text-[#2D7D6F]",
+  paid: "bg-accent/10 text-accent",
   refunded: "bg-gray-200 text-gray-500",
+  // 車検・法定点検ステータス
+  inspection_expired: "bg-red-100 text-red-600",
+  inspection_expiring: "bg-orange-100 text-orange-700",
+  inspection_ok: "bg-accent/10 text-accent",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -64,6 +70,10 @@ const STATUS_LABELS: Record<string, string> = {
   partial: "一部決済",
   paid: "決済済",
   refunded: "返金済",
+  // 車検・法定点検ステータス
+  inspection_expired: "期限切れ",
+  inspection_expiring: "期限間近",
+  inspection_ok: "有効",
 };
 
 const STATUS_DESCRIPTIONS: Record<string, string> = {
@@ -98,6 +108,10 @@ const STATUS_DESCRIPTIONS: Record<string, string> = {
   partial: "一部の金額のみ決済済み",
   paid: "全額が決済完了",
   refunded: "決済金額が返金された",
+  // 車検・法定点検ステータス
+  inspection_expired: "車検の有効期限が切れています。速やかに車検を受けてください",
+  inspection_expiring: "車検の有効期限が30日以内に迫っています",
+  inspection_ok: "車検の有効期限内です",
 };
 
 interface StatusBadgeProps {
@@ -109,12 +123,18 @@ export function StatusBadge({ status, label }: StatusBadgeProps) {
   const style = STATUS_STYLES[status] ?? "bg-gray-100 text-gray-600";
   const text = label ?? STATUS_LABELS[status] ?? status;
   const description = STATUS_DESCRIPTIONS[status];
-  return (
+
+  const badge = (
     <span
       className={"inline-block text-xs px-[8px] py-[2px] whitespace-nowrap cursor-default " + style}
-      title={description}
     >
       {text}
     </span>
   );
+
+  if (description) {
+    return <RichTooltip text={description}>{badge}</RichTooltip>;
+  }
+
+  return badge;
 }

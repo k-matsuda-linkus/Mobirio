@@ -1,13 +1,13 @@
-import { Sidebar } from "@/components/layout/Sidebar";
-import { VENDOR_NAV_ITEMS } from "@/lib/constants";
+import { VendorNavigation } from "@/components/vendor/VendorNavigation";
 
 export default function VendorLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen">
-      <Sidebar items={VENDOR_NAV_ITEMS} title="ベンダー管理" backHref="/" backLabel="サイトに戻る" />
-      <main className="md:ml-[260px] min-h-screen p-[24px] md:p-[40px] bg-gray-50">
-        {children}
-      </main>
+    <div className="vendor-theme min-h-screen">
+      <VendorNavigation>
+        <main className="pt-[48px] px-[24px] pb-[80px] md:px-[32px] md:pb-[32px] min-h-screen bg-base">
+          {children}
+        </main>
+      </VendorNavigation>
     </div>
   );
 }

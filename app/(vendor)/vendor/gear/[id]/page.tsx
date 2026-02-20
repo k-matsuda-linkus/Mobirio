@@ -216,7 +216,7 @@ export default function GearDetailPage() {
 
           <div className="space-y-[12px]">
             <div>
-              <label className={labelClass}>1日目タイプ</label>
+              <label className={labelClass}>1日タイプ</label>
               <div className="flex gap-[24px] mb-[8px]">
                 <label className="flex items-center gap-[6px] cursor-pointer">
                   <input
@@ -227,7 +227,7 @@ export default function GearDetailPage() {
                     onChange={(e) => setFirstDayType(e.target.value)}
                     className="accent-accent"
                   />
-                  <span className="text-sm">1日目</span>
+                  <span className="text-sm">1日</span>
                 </label>
                 <label className="flex items-center gap-[6px] cursor-pointer">
                   <input

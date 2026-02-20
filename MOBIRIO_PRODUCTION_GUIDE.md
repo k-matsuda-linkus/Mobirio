@@ -1316,3 +1316,73 @@ pathname.startsWith("/vendor")
   - 「紹介文」セクション（description textarea）
   - 「料金設定」セクション（vehicle_class select + 7料金入力、126cc以上で2時間プラングレーアウト）
   - 「車両属性設定」に is_featured チェックボックス・display_order 入力追加
+
+### 2026-02-20（ベンダーダッシュボード UI/UX 改修 — おすすめ5案実装）
+
+#### 施策2: 配色変更（ウォームニュートラル）
+- **変更**: `app/globals.css` — @themeに新規CSS変数追加（--color-sub: #6B8E6B, --color-sub-light: #8BAF8B, --color-base: #FAFAF8, --color-surface: #F5F3EF）。`.vendor-theme`スコープで accent を テラコッタオレンジ（#D4763C）に変更（公開ページは元のティールグリーン維持）
+- **変更**: `components/vendor/StatusBadge.tsx` — ハードコード `#2D7D6F` 6箇所を `bg-accent/10 text-accent` に置換（confirmed, published, active, insurance_active, pay_completed, paid）
+- **変更**: `lib/constants.ts` — RESERVATION_STATUSES の confirmed カラーを `bg-accent/10 text-accent` に変更。LAYOUT に `iconRailWidth: 60`, `topBarHeight: 56` 追加
+
+#### 施策1: ナビゲーション変更（コンパクトアイコンレール + スライドパネル + コマンドパレット）
+
+- **新規**: `lib/vendor-nav.ts` — ピン留め・最近のページ localStorage ヘルパー（getRecentPages, addRecentPage, getPinnedPages, togglePinPage）
+- **新規**: `components/vendor/IconRail.tsx` — 60px幅アイコンレール（左固定配置、VENDOR_NAV_ITEMSアイコン表示、ホバーでSlidePanel展開、アクティブグループに左ボーダーaccent色）
+- **新規**: `components/vendor/SlidePanel.tsx` — 240px幅スライドパネル（framer-motion AnimatePresenceでスライドイン/アウト、サブメニュー表示、ピン留め星アイコンToggle）
+- **新規**: `components/vendor/VendorTopBar.tsx` — 56px高トップバー（ページタイトル自動解決、StoreSelector、通知ベル、Cmd+Kコマンドパレットヒントボタン）
+- **新規**: `components/vendor/CommandPalette.tsx` — コマンドパレット（Cmd+K/Ctrl+Kグローバル起動、全ナビ項目平坦化検索、矢印キーナビ+Enter遷移、最近のページセクション、framer-motionフェード）
+- **新規**: `components/vendor/VendorNavigation.tsx` — 統合親コンポーネント（IconRail+SlidePanel+VendorTopBar+CommandPalette統合、VendorStoreContext export、モバイル全画面メニュー対応）
+- **変更**: `app/(vendor)/vendor/layout.tsx` — 旧Sidebar（260px幅）から新ナビゲーション（60pxアイコンレール+スライドパネル+トップバー）に切り替え。mainのml変更（260px→60px）、pt-[56px]追加、bg-gray-50→bg-base
+- **修正**: `components/vendor/dashboard/KpiCard.tsx` — className重複による型エラーを修正（spread構文での上書きを条件分岐に変更）
+- **備考**: 旧Sidebar.tsxは他レイアウト（admin, user）で使用中のため削除せず
+
+#### 施策3: ダッシュボードTOP全面刷新
+- **新規**: `components/vendor/dashboard/GreetingBanner.tsx` — 時間帯別挨拶（おはよう/こんにちは/お疲れさま）+ date-fns ja ロケール日本語日時、accent色グラデーション背景、1分毎自動更新
+- **新規**: `components/vendor/dashboard/KpiCard.tsx` — KPI個別カード（アイコン、値、前期比較↑↓→、href指定でLink化、accentColorカスタマイズ可）
+- **新規**: `components/vendor/dashboard/KpiGrid.tsx` — 4列レスポンシブグリッド（1→2→4列）
+- **新規**: `components/vendor/dashboard/DayTimeline.tsx` — 本日スケジュール（8:00〜20:00時間軸、出発=accent色/返却=sub色ドット、予約IDリンク付き）
+- **新規**: `components/vendor/dashboard/VehicleStatusBoard.tsx` — 車両ステータスボード（利用可能=緑/貸出中=青/メンテ=黄/予約済=紫、左ボーダー色分け、車両リスト最大3件+N台表示）
+- **新規**: `components/vendor/dashboard/MiniSalesChart.tsx` — CSS棒グラフ（外部ライブラリ不要、最大120px高、当月強調表示、万円単位表示）
+- **新規**: `components/vendor/dashboard/NoticePanel.tsx` — お知らせパネル（NEWバッジ付き、すべて表示→リンク）
+- **変更**: `app/(vendor)/vendor/page.tsx` — 全面書き換え。レイアウト: GreetingBanner → KpiGrid(4列) → DayTimeline(60%)+VehicleStatusBoard(40%) → MiniSalesChart(50%)+NoticePanel(50%)
+
+#### 施策4: 予約一覧にカンバンビュー追加
+- **新規**: `components/vendor/ViewToggle.tsx` — 汎用ビュー切替コンポーネント（アイコン+ラベル、アクティブ=accent色、施策5でも再利用）
+- **新規**: `components/vendor/FilterChips.tsx` — 汎用フィルターチップUI（検索条件をチップ可視化、個別削除X ボタン、+フィルター追加ボタン）
+- **新規**: `components/vendor/KanbanBoard.tsx` — カンバンボード本体（4列: 未確定=橙/確定済=緑/利用中=青/完了=灰、横スクロール対応）
+- **新規**: `components/vendor/KanbanColumn.tsx` — カンバン列（border-t-[3px]色付き、bg-surface背景、件数カウント）
+- **新規**: `components/vendor/KanbanCard.tsx` — 予約カード（予約番号リンク、車両名、顧客名、日時、金額、hover:shadow-md）
+- **変更**: `app/(vendor)/vendor/reservations/page.tsx` — ViewToggle追加（テーブル/カンバン切替）、FilterChips追加（検索条件チップ表示）、viewMode条件分岐で既存テーブルとKanbanBoard切替
+
+#### 施策5: 車両一覧にカード型グリッド追加
+- **新規**: `components/vendor/PublishToggle.tsx` — 公開/非公開 矩形トグルスイッチ（角型スライダー、border-radius禁止準拠、公開=accent色右寄せ/非公開=gray左寄せ、アニメーション付き）
+- **新規**: `components/vendor/BikeGridCard.tsx` — バイクカード（16:9画像、稼働率バッジ(80%+=緑/50-79%=黄/<50%=赤)、車両名リンク、排気量+料金クラス、PublishToggle）
+- **新規**: `components/vendor/BikeGridView.tsx` — グリッド表示コンテナ（1→2→3→4列レスポンシブ）
+- **変更**: `app/(vendor)/vendor/bikes/page.tsx` — ViewToggle追加（テーブル/グリッド切替）、BikeGridView表示、公開状態変更ハンドラ、稼働率モックデータ追加
+
+#### 施策7: 車検・法定点検アラート
+- **新規**: `components/vendor/dashboard/InspectionAlertPanel.tsx` — 車検期限アラートパネル（ダッシュボードTOP用、mockBikesから期限切れ/30日以内を抽出、赤=期限切れ/橙=期限間近）
+- **変更**: `components/vendor/StatusBadge.tsx` — `inspection_expired`, `inspection_expiring`, `inspection_ok` ステータス3種追加（赤/橙/緑）
+- **変更**: `app/(vendor)/vendor/page.tsx` — InspectionAlertPanel をKPIカード下に追加
+- **変更**: `app/(vendor)/vendor/bikes/page.tsx` — BikeRowに `inspectionExpiry` フィールド追加、車検期限列をテーブルに追加、モックデータに車検期限日付追加
+
+#### 施策8: 出発/返却チェックリスト
+- **新規**: `components/vendor/ChecklistPanel.tsx` — チェックリストパネル（departure/return 2タイプ、進捗バー、required項目マーク、全完了バッジ）
+- **変更**: `app/(vendor)/vendor/reservations/[id]/page.tsx` — 出発チェックリスト（5項目）と返却チェックリスト（4項目）を追加、チェック状態管理
+
+#### 施策9: 空状態ガイド + リッチツールチップ
+- **新規**: `components/vendor/EmptyState.tsx` — 汎用空状態コンポーネント（アイコン+タイトル+説明+アクションリンク）
+- **新規**: `components/vendor/RichTooltip.tsx` — CSS-onlyリッチツールチップ（group/group-hover、bg-gray-800テキスト、矢印付き）
+- **変更**: `components/vendor/StatusBadge.tsx` — `title` 属性をRichTooltipに変更、STATUS_DESCRIPTIONS追加
+- **変更**: 予約一覧・車両一覧・アーカイブ車両・ギア一覧・レビュー一覧 — 0件時にEmptyState表示追加
+
+#### 施策10: タブレット用ボトムナビゲーション
+- **新規**: `components/vendor/BottomNav.tsx` — モバイルボトムナビ（5項目: TOP/予約/車両/店舗/その他、md:hidden、active時accent色+上部2pxボーダー）
+- **変更**: `components/vendor/VendorNavigation.tsx` — BottomNav統合、ハンバーガーボタンをメニューオープン時のみ表示に変更、モバイルメニューz-index調整（z-[45]/z-[46]）
+- **変更**: `app/(vendor)/vendor/layout.tsx` — main の pb を `pb-[80px]`（BottomNav分余白確保）
+
+### 2026-02-20（TopBarスリム化 — ヘッダー重複解消）
+
+- **変更**: `components/vendor/VendorTopBar.tsx` — ページタイトル（h1）を削除、TopBarをツールバーに特化（StoreSelector + 通知ベル + コマンドパレットのみ）。高さを56px→48pxに削減。StoreSelector をモバイルでも常時表示に変更（`hidden md:flex` → 常時表示）。`usePathname`, `VENDOR_NAV_ITEMS`, `resolvePageTitle` の不要import/関数を削除
+- **変更**: `app/(vendor)/vendor/layout.tsx` — main の `pt-[56px]` → `pt-[48px]` に同期変更（TopBar高さ変更に合わせ）
+- **理由**: TopBarとVendorPageHeaderでページタイトルが重複表示されていた問題を解消。VendorPageHeaderにタイトル・パンくず・アクションボタンを一元化

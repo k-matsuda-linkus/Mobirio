@@ -52,7 +52,7 @@ export default function VendorMessagesPage() {
                   <div className="mt-[24px]">
                     <textarea
                       placeholder="返信を入力..."
-                      className="w-full border border-gray-200 px-[12px] py-[10px] text-sm min-h-[100px] focus:border-[#2D7D6F] focus:outline-none"
+                      className="w-full border border-gray-200 px-[12px] py-[10px] text-sm min-h-[100px] focus:border-accent focus:outline-none"
                     />
                     <button className="mt-[8px] bg-black px-[24px] py-[10px] text-sm text-white hover:bg-gray-800">送信</button>
                   </div>

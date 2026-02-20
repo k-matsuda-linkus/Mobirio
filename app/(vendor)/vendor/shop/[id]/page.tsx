@@ -63,6 +63,9 @@ const mockData = {
   youtubeUrl: "",
   paymentMethods: { cash: true, credit: true },
   lineId: "@sunshine-motors",
+  instagramUrl: "https://www.instagram.com/sunshine_motors/",
+  facebookUrl: "https://www.facebook.com/sunshinemotors",
+  googleBusinessUrl: "https://g.page/sunshine-motors-miyazaki",
   transferReportEmails: ["report@sunshine-motors.jp"],
   contractPlan: "レンタルバイクプラン",
   createdAt: "2023-01-15 09:00:00",
@@ -111,6 +114,9 @@ export default function ShopDetailPage() {
   const [youtubeUrl, setYoutubeUrl] = useState(mockData.youtubeUrl);
   const [paymentMethods, setPaymentMethods] = useState(mockData.paymentMethods);
   const [lineId, setLineId] = useState(mockData.lineId);
+  const [instagramUrl, setInstagramUrl] = useState(mockData.instagramUrl);
+  const [facebookUrl, setFacebookUrl] = useState(mockData.facebookUrl);
+  const [googleBusinessUrl, setGoogleBusinessUrl] = useState(mockData.googleBusinessUrl);
   const [transferReportEmails, setTransferReportEmails] = useState(mockData.transferReportEmails);
   const [contractPlan] = useState(mockData.contractPlan);
 
@@ -511,15 +517,34 @@ export default function ShopDetailPage() {
           </div>
         </div>
 
-        {/* LINE ID */}
+        {/* SNS・LINE */}
         <div className={sectionClass}>
-          <h2 className={sectionTitle}>LINE ID</h2>
-          <input type="text" value={lineId} onChange={(e) => setLineId(e.target.value)} className={inputClass + " max-w-[300px]"} placeholder="@example" />
+          <h2 className={sectionTitle}>SNS・LINE</h2>
+
+          <div>
+            <label className={labelClass}>LINE ID</label>
+            <input type="text" value={lineId} onChange={(e) => setLineId(e.target.value)} className={inputClass + " max-w-[400px]"} placeholder="@example" />
+          </div>
+
+          <div>
+            <label className={labelClass}>Instagram URL</label>
+            <input type="url" value={instagramUrl} onChange={(e) => setInstagramUrl(e.target.value)} className={inputClass + " max-w-[500px]"} placeholder="https://www.instagram.com/..." />
+          </div>
+
+          <div>
+            <label className={labelClass}>Facebook URL</label>
+            <input type="url" value={facebookUrl} onChange={(e) => setFacebookUrl(e.target.value)} className={inputClass + " max-w-[500px]"} placeholder="https://www.facebook.com/..." />
+          </div>
+
+          <div>
+            <label className={labelClass}>Googleビジネスプロフィール URL</label>
+            <input type="url" value={googleBusinessUrl} onChange={(e) => setGoogleBusinessUrl(e.target.value)} className={inputClass + " max-w-[500px]"} placeholder="https://g.page/..." />
+          </div>
         </div>
 
-        {/* 譲渡実績報告書メール送付先 */}
+        {/* ご請求等受け取りメールアドレス */}
         <div className={sectionClass}>
-          <h2 className={sectionTitle}>譲渡実績報告書メール送付先</h2>
+          <h2 className={sectionTitle}>ご請求等受け取りメールアドレス</h2>
           <div className="space-y-[8px]">
             {transferReportEmails.map((em, i) => (
               <div key={i} className="flex items-center gap-[8px]">

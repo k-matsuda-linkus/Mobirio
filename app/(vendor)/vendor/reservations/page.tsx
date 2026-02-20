@@ -3,11 +3,16 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Download, Plus, ExternalLink } from "lucide-react";
+import { Download, Plus, ExternalLink, List, Columns3, CalendarDays } from "lucide-react";
 import { VendorPageHeader } from "@/components/vendor/VendorPageHeader";
 import { VendorSearchBar } from "@/components/vendor/VendorSearchBar";
 import { VendorDataTable, VendorColumn } from "@/components/vendor/VendorDataTable";
 import { StatusBadge } from "@/components/vendor/StatusBadge";
+import { ViewToggle } from "@/components/vendor/ViewToggle";
+import { FilterChips } from "@/components/vendor/FilterChips";
+import { KanbanBoard } from "@/components/vendor/KanbanBoard";
+import type { KanbanItem } from "@/components/vendor/KanbanBoard";
+import { EmptyState } from "@/components/vendor/EmptyState";
 import { PAYMENT_TYPE_LABELS, PAYMENT_SETTLEMENT_LABELS } from "@/lib/mock/reservations";
 import type { PaymentType, PaymentSettlement } from "@/lib/mock/reservations";
 
@@ -226,12 +231,60 @@ const MOCK_RESERVATIONS: Reservation[] = [
 
 export default function VendorReservationsPage() {
   const router = useRouter();
+  const [viewMode, setViewMode] = useState<"table" | "kanban">("kanban");
   const [searchNo, setSearchNo] = useState("");
   const [searchName, setSearchName] = useState("");
   const [searchStore, setSearchStore] = useState("");
   const [searchStatus, setSearchStatus] = useState("");
   const [departureDateFrom, setDepartureDateFrom] = useState("");
   const [departureDateTo, setDepartureDateTo] = useState("");
+
+  const VIEW_OPTIONS = [
+    { key: "table", label: "テーブル", icon: List },
+    { key: "kanban", label: "カンバン", icon: Columns3 },
+  ];
+
+  const STATUS_LABEL_MAP: Record<string, string> = {
+    pending: "申請中",
+    confirmed: "確定済",
+    unconfirmed: "未確定",
+    in_use: "利用中",
+    completed: "完了",
+    cancelled: "キャンセル",
+    no_show: "ノーショー",
+  };
+
+  const filterChips = [
+    searchNo && { key: "no", label: "予約番号", value: searchNo },
+    searchName && { key: "name", label: "予約者名", value: searchName },
+    searchStore && { key: "store", label: "店舗", value: searchStore },
+    searchStatus && { key: "status", label: "状態", value: STATUS_LABEL_MAP[searchStatus] || searchStatus },
+    departureDateFrom && { key: "dateFrom", label: "出発日From", value: departureDateFrom },
+    departureDateTo && { key: "dateTo", label: "出発日To", value: departureDateTo },
+  ].filter(Boolean) as { key: string; label: string; value: string }[];
+
+  const handleRemoveFilter = (key: string) => {
+    switch (key) {
+      case "no": setSearchNo(""); break;
+      case "name": setSearchName(""); break;
+      case "store": setSearchStore(""); break;
+      case "status": setSearchStatus(""); break;
+      case "dateFrom": setDepartureDateFrom(""); break;
+      case "dateTo": setDepartureDateTo(""); break;
+    }
+  };
+
+  const kanbanItems: KanbanItem[] = MOCK_RESERVATIONS.map((r) => ({
+    id: r.id,
+    reservationNo: r.reservationNo,
+    customerName: r.customerName,
+    vehicleName: r.vehicleName,
+    storeName: r.storeName,
+    departureAt: r.departureAt,
+    returnAt: r.returnAt,
+    totalAmount: r.totalAmount,
+    status: r.status,
+  }));
 
   const columns: VendorColumn<Reservation>[] = [
     {
@@ -371,6 +424,14 @@ export default function VendorReservationsPage() {
         }
       />
 
+      <div className="px-[16px] py-[8px]">
+        <ViewToggle
+          views={VIEW_OPTIONS}
+          activeView={viewMode}
+          onChange={(key) => setViewMode(key as "table" | "kanban")}
+        />
+      </div>
+
       <VendorSearchBar
         defaultOpen={false}
         onSearch={() => {}}
@@ -453,13 +514,28 @@ export default function VendorReservationsPage() {
         </div>
       </VendorSearchBar>
 
-      <VendorDataTable<Reservation>
-        columns={columns}
-        data={MOCK_RESERVATIONS}
-        pageSize={10}
-        getId={(item) => item.id}
-        onRowClick={(item) => router.push(`/vendor/reservations/${item.id}`)}
+      <FilterChips
+        chips={filterChips}
+        onRemove={handleRemoveFilter}
       />
+
+      {MOCK_RESERVATIONS.length === 0 ? (
+        <EmptyState
+          icon={CalendarDays}
+          title="予約がありません"
+          description="予約が入ると、ここに一覧が表示されます。"
+        />
+      ) : viewMode === "table" ? (
+        <VendorDataTable<Reservation>
+          columns={columns}
+          data={MOCK_RESERVATIONS}
+          pageSize={10}
+          getId={(item) => item.id}
+          onRowClick={(item) => router.push(`/vendor/reservations/${item.id}`)}
+        />
+      ) : (
+        <KanbanBoard items={kanbanItems} />
+      )}
     </div>
   );
 }

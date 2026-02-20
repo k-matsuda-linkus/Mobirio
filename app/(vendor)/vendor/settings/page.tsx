@@ -2,7 +2,7 @@
 import { useState } from "react";
 
 const DAYS = ["月", "火", "水", "木", "金", "土", "日"];
-const inputCls = "w-full border border-gray-200 bg-white px-[12px] py-[10px] text-sm focus:border-[#2D7D6F] focus:outline-none";
+const inputCls = "w-full border border-gray-200 bg-white px-[12px] py-[10px] text-sm focus:border-accent focus:outline-none";
 const labelCls = "block text-xs font-medium text-gray-500 mb-[4px]";
 
 export default function VendorSettingsPage() {
@@ -49,7 +49,7 @@ export default function VendorSettingsPage() {
             ].map((item) => (
               <div key={item.label} className="flex items-center justify-between">
                 <span className="text-sm text-gray-700">{item.label}</span>
-                <button type="button" onClick={item.toggle} className={"relative inline-flex h-[24px] w-[44px] items-center transition-colors " + (item.checked ? "bg-[#2D7D6F]" : "bg-gray-200")}>
+                <button type="button" onClick={item.toggle} className={"relative inline-flex h-[24px] w-[44px] items-center transition-colors " + (item.checked ? "bg-accent" : "bg-gray-200")}>
                   <span className={"inline-block h-[20px] w-[20px] bg-white transition-transform " + (item.checked ? "translate-x-[22px]" : "translate-x-[2px]")} />
                 </button>
               </div>

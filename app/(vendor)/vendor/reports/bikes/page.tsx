@@ -47,7 +47,7 @@ export default function BikeUsageReportPage() {
                 <td className="px-[16px] py-[12px] text-right">
                   <div className="flex items-center justify-end gap-[8px]">
                     <div className="w-[80px] h-[6px] bg-gray-100">
-                      <div className="h-full bg-[#2D7D6F]" style={{ width: `${b.utilization}%` }} />
+                      <div className="h-full bg-accent" style={{ width: `${b.utilization}%` }} />
                     </div>
                     <span className="font-mono text-gray-600 w-[40px] text-right">{b.utilization}%</span>
                   </div>

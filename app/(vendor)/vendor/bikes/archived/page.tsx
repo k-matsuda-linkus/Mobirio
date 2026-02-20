@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Image as ImageIcon } from "lucide-react";
 import { VendorPageHeader } from "@/components/vendor/VendorPageHeader";
 import { VendorDataTable, type VendorColumn } from "@/components/vendor/VendorDataTable";
 import { StatusBadge } from "@/components/vendor/StatusBadge";
+import { EmptyState } from "@/components/vendor/EmptyState";
+import { Bike } from "lucide-react";
 
 interface ArchivedBike {
   id: string;
@@ -68,27 +69,6 @@ const mockArchivedBikes: ArchivedBike[] = [
 ];
 
 const columns: VendorColumn<ArchivedBike>[] = [
-  {
-    key: "image",
-    label: "画像",
-    width: "w-[70px]",
-    render: (item) => (
-      <div className="w-[48px] h-[36px] bg-gray-100 flex items-center justify-center overflow-hidden">
-        {item.image ? (
-          <img
-            src={item.image}
-            alt={item.vehicleName}
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = "none";
-              (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
-            }}
-          />
-        ) : null}
-        <ImageIcon className={`w-[16px] h-[16px] text-gray-300 ${item.image ? "hidden" : ""}`} />
-      </div>
-    ),
-  },
   {
     key: "storeVehicle",
     label: "店舗 / 車両名",
@@ -154,12 +134,14 @@ export default function ArchivedBikesPage() {
         保険解約により非公開になった車両の一覧です。統計データは保持されます。
       </div>
 
-      <VendorDataTable columns={columns} data={mockArchivedBikes} pageSize={20} />
-
-      {mockArchivedBikes.length === 0 && (
-        <div className="text-center py-[60px] text-gray-400 text-sm">
-          アーカイブ車両はありません
-        </div>
+      {mockArchivedBikes.length === 0 ? (
+        <EmptyState
+          icon={Bike}
+          title="アーカイブ車両はありません"
+          description="保険解約等でアーカイブされた車両がここに表示されます。"
+        />
+      ) : (
+        <VendorDataTable columns={columns} data={mockArchivedBikes} pageSize={20} />
       )}
     </div>
   );

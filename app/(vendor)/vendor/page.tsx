@@ -1,177 +1,196 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { Plus, Calendar, X } from "lucide-react";
-import { StoreSelector } from "@/components/vendor/StoreSelector";
+import {
+  ArrowUpRight,
+  ArrowDownLeft,
+  AlertCircle,
+  JapaneseYen,
+} from "lucide-react";
+import { GreetingBanner } from "@/components/vendor/dashboard/GreetingBanner";
+import { KpiCard } from "@/components/vendor/dashboard/KpiCard";
+import { KpiGrid } from "@/components/vendor/dashboard/KpiGrid";
+import { DayTimeline } from "@/components/vendor/dashboard/DayTimeline";
+import type { TimelineEvent } from "@/components/vendor/dashboard/DayTimeline";
+import { VehicleStatusBoard } from "@/components/vendor/dashboard/VehicleStatusBoard";
+import type { VehicleStatus } from "@/components/vendor/dashboard/VehicleStatusBoard";
+import { MiniSalesChart } from "@/components/vendor/dashboard/MiniSalesChart";
+import type { MonthlySales } from "@/components/vendor/dashboard/MiniSalesChart";
+import { NoticePanel } from "@/components/vendor/dashboard/NoticePanel";
+import type { Notice } from "@/components/vendor/dashboard/NoticePanel";
+import { InspectionAlertPanel } from "@/components/vendor/dashboard/InspectionAlertPanel";
 
-const MOCK_STORES = [
-  { id: "s1", name: "宮崎橘通り店" },
-  { id: "s2", name: "宮崎空港店" },
-];
+// ---------- モックデータ ----------
 
-const MOCK_DEPARTURES = [
+const TIMELINE_EVENTS: TimelineEvent[] = [
   {
-    id: "d1",
-    vehicle: "PCX160",
-    period: "2025/07/14 10:00 ~ 2025/07/16 10:00",
-    reservationNo: "R-20250701-001",
+    time: "09:00",
+    type: "departure",
+    vehicleName: "PCX160",
     customerName: "田中 太郎",
+    reservationId: "R-20260220-001",
   },
   {
-    id: "d2",
-    vehicle: "ADV150",
-    period: "2025/07/14 11:00 ~ 2025/07/15 17:00",
-    reservationNo: "R-20250703-005",
+    time: "10:00",
+    type: "departure",
+    vehicleName: "ADV150",
     customerName: "山田 花子",
+    reservationId: "R-20260220-002",
   },
   {
-    id: "d3",
-    vehicle: "CB250R",
-    period: "2025/07/14 13:00 ~ 2025/07/17 13:00",
-    reservationNo: "R-20250705-012",
+    time: "11:00",
+    type: "return",
+    vehicleName: "CB250R",
     customerName: "佐藤 一郎",
+    reservationId: "R-20260218-010",
+  },
+  {
+    time: "13:00",
+    type: "departure",
+    vehicleName: "レブル250",
+    customerName: "鈴木 次郎",
+    reservationId: "R-20260220-003",
+  },
+  {
+    time: "15:00",
+    type: "return",
+    vehicleName: "NMAX155",
+    customerName: "高橋 美咲",
+    reservationId: "R-20260217-008",
+  },
+  {
+    time: "17:00",
+    type: "return",
+    vehicleName: "MT-07",
+    customerName: "伊藤 健",
+    reservationId: "R-20260216-005",
   },
 ];
 
-const MOCK_NOTICES = [
-  { id: "n1", date: "2025/07/10", title: "夏季キャンペーンのご案内" },
-  { id: "n2", date: "2025/07/08", title: "システムメンテナンスのお知らせ（7/20）" },
+const VEHICLE_STATUSES: VehicleStatus[] = [
+  {
+    status: "available",
+    count: 4,
+    vehicles: [
+      { id: "v1", name: "PCX160" },
+      { id: "v2", name: "スーパーカブ110" },
+      { id: "v3", name: "ジクサー150" },
+      { id: "v4", name: "CT125" },
+    ],
+  },
+  {
+    status: "rented",
+    count: 3,
+    vehicles: [
+      { id: "v5", name: "CB250R" },
+      { id: "v6", name: "NMAX155" },
+      { id: "v7", name: "MT-07" },
+    ],
+  },
+  {
+    status: "maintenance",
+    count: 1,
+    vehicles: [{ id: "v8", name: "ADV150" }],
+  },
+  {
+    status: "reserved",
+    count: 2,
+    vehicles: [
+      { id: "v9", name: "レブル250" },
+      { id: "v10", name: "Ninja400" },
+    ],
+  },
 ];
+
+const MONTHLY_SALES: MonthlySales[] = [
+  { month: "9月", amount: 280000 },
+  { month: "10月", amount: 310000 },
+  { month: "11月", amount: 260000 },
+  { month: "12月", amount: 190000 },
+  { month: "1月", amount: 220000 },
+  { month: "2月", amount: 345000 },
+];
+
+const NOTICES: Notice[] = [
+  {
+    id: "n1",
+    date: "2026/02/18",
+    title: "春季キャンペーン開始のご案内",
+    isNew: true,
+  },
+  {
+    id: "n2",
+    date: "2026/02/15",
+    title: "システムメンテナンスのお知らせ（3/1）",
+  },
+  {
+    id: "n3",
+    date: "2026/02/10",
+    title: "保険契約更新に関するご確認のお願い",
+  },
+];
+
+// ---------- ページ ----------
 
 export default function VendorDashboardPage() {
-  const [selectedStore, setSelectedStore] = useState("s1");
-
   return (
     <div>
-      {/* Header Row */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-[12px] mb-[24px]">
-        <StoreSelector
-          stores={MOCK_STORES}
-          selectedId={selectedStore}
-          onChange={setSelectedStore}
-        />
-        <div className="flex items-center gap-[8px] flex-wrap">
-          <Link
-            href="/vendor/calendar"
-            className="flex items-center gap-[6px] border border-gray-300 bg-white px-[14px] py-[8px] text-sm text-gray-700 hover:bg-gray-50"
-          >
-            <Calendar className="w-[14px] h-[14px]" />
-            車両予約状況
-          </Link>
-          <Link
+      {/* 挨拶バナー */}
+      <GreetingBanner departureCount={3} returnCount={2} />
+
+      {/* KPIカード */}
+      <div className="mt-[16px]">
+        <KpiGrid>
+          <KpiCard
+            icon={ArrowUpRight}
+            label="今日の出発"
+            value={3}
+            unit="件"
+            comparison={{ label: "前日比", diff: 1, isPositive: true }}
             href="/vendor/reservations"
-            className="flex items-center gap-[6px] bg-accent text-white px-[14px] py-[8px] text-sm hover:bg-accent-dark"
-          >
-            <Plus className="w-[14px] h-[14px]" />
-            レンタル予約登録
-          </Link>
-          <Link
-            href="/vendor/shop/closures"
-            className="flex items-center gap-[6px] border border-gray-300 bg-white px-[14px] py-[8px] text-sm text-gray-700 hover:bg-gray-50"
-          >
-            <X className="w-[14px] h-[14px]" />
-            臨時休業・休業日登録
-          </Link>
-        </div>
-      </div>
-
-      {/* Stats Section */}
-      <div className="mb-[24px]">
-        <h2 className="font-serif text-lg font-light mb-[12px]">当月売上状況</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-[16px]">
-          <div className="bg-white border border-gray-200 p-[20px]">
-            <p className="text-xs text-gray-400 mb-[4px]">レンタル件数</p>
-            <p className="text-3xl font-medium">
-              23<span className="text-base font-normal text-gray-500 ml-[4px]">件</span>
-            </p>
-          </div>
-          <div className="bg-white border border-gray-200 p-[20px]">
-            <p className="text-xs text-gray-400 mb-[4px]">レンタル売上金額</p>
-            <p className="text-3xl font-medium">
-              &yen;345,000
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Today Departures */}
-      <div className="bg-white border border-gray-200 mb-[24px]">
-        <div className="px-[20px] py-[14px] border-b border-gray-200">
-          <h2 className="font-serif text-lg font-light">本日出発予定</h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 bg-gray-50 text-xs text-gray-500">
-                <th className="px-[16px] py-[10px] text-left">車両</th>
-                <th className="px-[16px] py-[10px] text-left">レンタル期間</th>
-                <th className="px-[16px] py-[10px] text-left">予約番号</th>
-                <th className="px-[16px] py-[10px] text-left">予約者</th>
-              </tr>
-            </thead>
-            <tbody>
-              {MOCK_DEPARTURES.map((dep) => (
-                <tr key={dep.id} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="px-[16px] py-[12px] font-medium">{dep.vehicle}</td>
-                  <td className="px-[16px] py-[12px] text-gray-600 whitespace-nowrap">{dep.period}</td>
-                  <td className="px-[16px] py-[12px]">
-                    <Link href={`/vendor/reservations/${dep.id}`} className="text-accent hover:underline font-mono text-xs">
-                      {dep.reservationNo}
-                    </Link>
-                  </td>
-                  <td className="px-[16px] py-[12px]">{dep.customerName}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Bottom 3-column section */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-[16px]">
-        {/* Unanswered Request Reservations */}
-        <div className="bg-white border border-gray-200 p-[20px]">
-          <h3 className="font-serif text-sm font-light text-gray-500 mb-[12px]">未回答リクエスト予約</h3>
-          <p className="text-4xl font-medium text-orange-600">3<span className="text-sm font-normal text-gray-400 ml-[4px]">件</span></p>
-          <Link
+          />
+          <KpiCard
+            icon={ArrowDownLeft}
+            label="今日の返却"
+            value={2}
+            unit="件"
+            comparison={{ label: "前日比", diff: -1, isPositive: false }}
+            href="/vendor/reservations"
+          />
+          <KpiCard
+            icon={AlertCircle}
+            label="未回答リクエスト"
+            value={5}
+            unit="件"
+            comparison={{ label: "前日比", diff: 2, isPositive: false }}
             href="/vendor/reservations?status=unconfirmed"
-            className="inline-block mt-[12px] text-xs text-accent hover:underline"
-          >
-            一覧を表示 &rarr;
-          </Link>
-        </div>
+            accentColor="#F59E0B"
+          />
+          <KpiCard
+            icon={JapaneseYen}
+            label="当月売上"
+            value="¥345,000"
+            comparison={{ label: "前月比", diff: 55000, isPositive: true }}
+            subInfo="前月末時点 ¥290,000"
+            href="/vendor/analytics/shop-performance"
+          />
+        </KpiGrid>
+      </div>
 
-        {/* Unanswered Inquiries */}
-        <div className="bg-white border border-gray-200 p-[20px]">
-          <h3 className="font-serif text-sm font-light text-gray-500 mb-[12px]">未回答お問い合わせ</h3>
-          <p className="text-4xl font-medium text-orange-600">2<span className="text-sm font-normal text-gray-400 ml-[4px]">件</span></p>
-          <Link
-            href="/vendor/inquiries?status=pending"
-            className="inline-block mt-[12px] text-xs text-accent hover:underline"
-          >
-            一覧を表示 &rarr;
-          </Link>
-        </div>
+      {/* 車検アラート */}
+      <div className="mt-[16px]">
+        <InspectionAlertPanel />
+      </div>
 
-        {/* Notices from HQ */}
-        <div className="bg-white border border-gray-200 p-[20px]">
-          <h3 className="font-serif text-sm font-light text-gray-500 mb-[12px]">本部からのお知らせ</h3>
-          <div className="space-y-[10px]">
-            {MOCK_NOTICES.map((notice) => (
-              <div key={notice.id} className="border-b border-gray-100 pb-[8px] last:border-0">
-                <p className="text-xs text-gray-400">{notice.date}</p>
-                <p className="text-sm text-gray-700">{notice.title}</p>
-              </div>
-            ))}
-          </div>
-          <Link
-            href="/vendor/notifications"
-            className="inline-block mt-[12px] text-xs text-accent hover:underline"
-          >
-            すべて表示 &rarr;
-          </Link>
-        </div>
+      {/* タイムライン（全幅） */}
+      <div className="mt-[16px]">
+        <DayTimeline events={TIMELINE_EVENTS} />
+      </div>
+
+      {/* 車両ステータス & 売上推移 & お知らせ */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-[16px] mt-[16px]">
+        <VehicleStatusBoard statuses={VEHICLE_STATUSES} />
+        <MiniSalesChart data={MONTHLY_SALES} currentMonth="2月" />
+        <NoticePanel notices={NOTICES} />
       </div>
     </div>
   );

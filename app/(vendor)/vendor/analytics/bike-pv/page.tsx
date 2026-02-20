@@ -117,40 +117,43 @@ export default function VendorBikePVPage() {
         breadcrumbs={[{ label: "分析" }, { label: "車両PV分析" }]}
       />
 
-      {/* Store selector */}
+      {/* 店舗選択 */}
       <div className="mb-[16px]">
         <StoreSelector stores={STORES} selectedId={selectedStore} onChange={setSelectedStore} />
       </div>
 
-      {/* Filters */}
-      <div className="bg-white border border-gray-200 p-[16px] mb-[16px]">
+      {/* フィルターパネル */}
+      <div className="bg-surface border-t border-gray-200 p-[16px] mb-[16px]">
         <div className="flex flex-wrap items-end gap-[16px]">
+          {/* 分析単位セグメントトグル */}
           <div>
-            <label className="block text-xs text-gray-500 mb-[4px]">分析単位</label>
-            <div className="flex items-center gap-[12px]">
+            <label className="block text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-[6px]">分析単位</label>
+            <div className="inline-flex border border-gray-200">
               {([
                 { value: "year", label: "年単位" },
                 { value: "month", label: "月単位" },
                 { value: "day", label: "日単位" },
               ] as const).map((opt) => (
-                <label key={opt.value} className="flex items-center gap-[4px] text-sm text-gray-700 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="analysisUnit"
-                    value={opt.value}
-                    checked={analysisUnit === opt.value}
-                    onChange={() => setAnalysisUnit(opt.value)}
-                    className="accent-accent"
-                  />
+                <button
+                  key={opt.value}
+                  onClick={() => setAnalysisUnit(opt.value)}
+                  className={
+                    "px-[14px] py-[6px] text-[13px] transition-colors " +
+                    (analysisUnit === opt.value
+                      ? "bg-accent text-white"
+                      : "bg-white text-gray-600 hover:bg-gray-50")
+                  }
+                >
                   {opt.label}
-                </label>
+                </button>
               ))}
             </div>
           </div>
 
+          {/* 年単位の場合: 対象年 */}
           {analysisUnit === "year" && (
             <div>
-              <label className="block text-xs text-gray-500 mb-[4px]">対象年</label>
+              <label className="block text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-[6px]">対象年</label>
               <select value={analysisYear} onChange={(e) => setAnalysisYear(e.target.value)} className={inputClass + " w-[100px]"}>
                 <option value="2025">2025年</option>
                 <option value="2026">2026年</option>
@@ -158,9 +161,10 @@ export default function VendorBikePVPage() {
             </div>
           )}
 
+          {/* 月単位の場合: 対象年月 */}
           {analysisUnit === "month" && (
             <div>
-              <label className="block text-xs text-gray-500 mb-[4px]">対象年月</label>
+              <label className="block text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-[6px]">対象年月</label>
               <div className="flex items-center gap-[4px]">
                 <select value={analysisYear} onChange={(e) => setAnalysisYear(e.target.value)} className={inputClass + " w-[100px]"}>
                   <option value="2025">2025年</option>
@@ -175,9 +179,10 @@ export default function VendorBikePVPage() {
             </div>
           )}
 
+          {/* 日単位の場合: 対象日 */}
           {analysisUnit === "day" && (
             <div>
-              <label className="block text-xs text-gray-500 mb-[4px]">対象日</label>
+              <label className="block text-[12px] font-medium text-gray-500 uppercase tracking-wider mb-[6px]">対象日</label>
               <input
                 type="date"
                 value={analysisDate}
@@ -187,9 +192,11 @@ export default function VendorBikePVPage() {
             </div>
           )}
 
-          <button className="bg-accent text-white px-[16px] py-[7px] text-sm hover:bg-accent/90">
+          {/* 検索ボタン */}
+          <button className="bg-gray-800 text-white px-[16px] py-[7px] text-sm hover:bg-gray-700 transition-colors">
             検索
           </button>
+          {/* CSV出力ボタン */}
           <button className="flex items-center gap-[6px] border border-gray-300 bg-white px-[14px] py-[7px] text-sm text-gray-700 hover:bg-gray-50">
             <Download className="w-[14px] h-[14px]" />
             CSV出力
@@ -197,7 +204,7 @@ export default function VendorBikePVPage() {
         </div>
       </div>
 
-      {/* Vehicle charts */}
+      {/* 車両別チャート */}
       <div className="space-y-[16px]">
         {MOCK_VEHICLE_PV.map((vehicle) => (
           <AnalyticsChart

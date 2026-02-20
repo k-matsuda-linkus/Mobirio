@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Plus, Trash2, ChevronDown, AlertTriangle, Banknote, CreditCard, X } from "lucide-react";
 import { VendorPageHeader } from "@/components/vendor/VendorPageHeader";
 import { StatusBadge } from "@/components/vendor/StatusBadge";
+import { ChecklistPanel } from "@/components/vendor/ChecklistPanel";
 import { PAYMENT_TYPE_LABELS } from "@/lib/mock/reservations";
 import type { PaymentType } from "@/lib/mock/reservations";
 import type { PaymentStatus } from "@/types/database";
@@ -130,6 +131,37 @@ export default function VendorReservationDetailPage() {
   const [customerNote, setCustomerNote] = useState(MOCK_RESERVATION.customerNote);
   const [contractLang, setContractLang] = useState("ja");
   const [historyOpen, setHistoryOpen] = useState(false);
+
+  // チェックリスト
+  const [departureChecked, setDepartureChecked] = useState<string[]>([]);
+  const [returnChecked, setReturnChecked] = useState<string[]>([]);
+
+  const DEPARTURE_ITEMS = [
+    { id: "d1", label: "免許証確認", required: true },
+    { id: "d2", label: "車両外観チェック", required: true },
+    { id: "d3", label: "走行距離記録", required: true },
+    { id: "d4", label: "操作説明", required: false },
+    { id: "d5", label: "緊急連絡先案内", required: false },
+  ];
+
+  const RETURN_ITEMS = [
+    { id: "r1", label: "車両外観チェック", required: true },
+    { id: "r2", label: "走行距離記録", required: true },
+    { id: "r3", label: "ガソリン残量確認", required: false },
+    { id: "r4", label: "忘れ物確認", required: false },
+  ];
+
+  const toggleDepartureItem = (id: string) => {
+    setDepartureChecked((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const toggleReturnItem = (id: string) => {
+    setReturnChecked((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
 
   // 決済管理
   const [payments, setPayments] = useState(MOCK_RESERVATION.payments);
@@ -357,6 +389,15 @@ export default function VendorReservationDetailPage() {
             </button>
           </div>
 
+          {/* 出発チェックリスト */}
+          <ChecklistPanel
+            title="出発チェックリスト"
+            type="departure"
+            items={DEPARTURE_ITEMS}
+            checkedItems={departureChecked}
+            onToggle={toggleDepartureItem}
+          />
+
           {/* Section 2: 車両 */}
           <div className="bg-white border border-gray-200 p-[20px]">
             <h2 className={sectionTitleClass}>車両</h2>
@@ -535,6 +576,15 @@ export default function VendorReservationDetailPage() {
             </button>
           </div>
 
+          {/* 返却チェックリスト */}
+          <ChecklistPanel
+            title="返却チェックリスト"
+            type="return"
+            items={RETURN_ITEMS}
+            checkedItems={returnChecked}
+            onToggle={toggleReturnItem}
+          />
+
           {/* Section 4: 返車処理・ご精算 */}
           <div className="bg-white border border-gray-200 p-[20px]">
             {/* タイトル + 決済全体ステータス */}
@@ -628,7 +678,7 @@ export default function VendorReservationDetailPage() {
 
               <div className="flex justify-between text-sm font-medium pt-[8px] border-t-2 border-gray-300">
                 <span>残額 (a + b &minus; c)</span>
-                <span className={"text-lg " + (remainingTotal <= 0 ? "text-[#2D7D6F]" : "text-orange-600")}>
+                <span className={"text-lg " + (remainingTotal <= 0 ? "text-accent" : "text-orange-600")}>
                   &yen;{remainingTotal.toLocaleString()}
                 </span>
               </div>

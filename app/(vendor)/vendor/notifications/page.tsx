@@ -9,7 +9,7 @@ export default function VendorNotificationsPage() {
       <h1 className="font-serif text-2xl font-light mb-[24px]">通知</h1>
       <div className="space-y-[1px]">
         {notifications.map((n) => (
-          <div key={n.id} className={"bg-white border border-gray-100 p-[16px]" + (!n.read ? " border-l-[3px] border-l-[#2D7D6F]" : "")}>
+          <div key={n.id} className={"bg-white border border-gray-100 p-[16px]" + (!n.read ? " border-l-[3px] border-l-accent" : "")}>
             <p className={"text-sm" + (!n.read ? " font-medium" : "")}>{n.title}</p>
             <p className="text-sm text-gray-500 mt-[2px]">{n.message}</p>
             <p className="text-xs text-gray-300 mt-[4px]">{n.date}</p>
