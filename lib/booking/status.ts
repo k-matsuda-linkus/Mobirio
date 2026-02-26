@@ -6,7 +6,7 @@ const VALID_TRANSITIONS: Record<ReservationStatus, ReservationStatus[]> = {
   in_use: ["completed"],
   completed: [],
   cancelled: [],
-  no_show: [],
+  no_show: ["confirmed"],
 };
 
 export function canTransition(from: ReservationStatus, to: ReservationStatus): boolean {

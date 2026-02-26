@@ -2,19 +2,34 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
+import { env } from "@/lib/env";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSent, setIsSent] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      setIsSent(true);
-    }, 1500);
+    setError("");
+
+    const supabase = createClient();
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+      email,
+      { redirectTo: env.appUrl() + "/auth/set-password" }
+    );
+
+    setIsLoading(false);
+
+    if (resetError) {
+      setError("送信に失敗しました。もう一度お試しください。");
+      return;
+    }
+
+    setIsSent(true);
   };
 
   if (isSent) {
@@ -51,6 +66,12 @@ export default function ForgotPasswordPage() {
       <p className="text-sm font-sans text-gray-500 text-center mb-[32px]">
         登録済みのメールアドレスを入力してください
       </p>
+
+      {error && (
+        <div className="mb-[20px] px-[14px] py-[12px] bg-red-50 border border-red-200 text-sm font-sans text-red-600">
+          {error}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-[20px]">
         <div>

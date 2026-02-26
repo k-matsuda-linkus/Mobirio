@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth/requireAuth";
+import { isSandboxMode, sandboxLog } from "@/lib/sandbox";
+import { mockReservations } from "@/lib/mock/reservations";
 import type { Reservation } from "@/types/database";
 
 export async function GET(
@@ -13,6 +15,28 @@ export async function GET(
   }
 
   const { user, supabase } = authResult;
+
+  // Sandbox モード
+  if (isSandboxMode()) {
+    sandboxLog("GET /api/reservations/[id]", `id=${id}, user=${user.id}`);
+
+    const reservation = mockReservations.find((r) => r.id === id);
+    if (!reservation) {
+      return NextResponse.json(
+        { error: "Not found", message: "予約が見つかりません" },
+        { status: 404 }
+      );
+    }
+
+    if (reservation.user_id !== user.id && user.role === "customer") {
+      return NextResponse.json(
+        { error: "Forbidden", message: "この予約を閲覧する権限がありません" },
+        { status: 403 }
+      );
+    }
+
+    return NextResponse.json({ data: reservation, message: "OK" });
+  }
 
   const { data, error } = await supabase
     .from("reservations")
@@ -65,6 +89,64 @@ export async function PATCH(
 
   const { user, supabase } = authResult;
 
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid JSON", message: "リクエストボディが不正です" },
+      { status: 400 }
+    );
+  }
+
+  // Sandbox モード
+  if (isSandboxMode()) {
+    sandboxLog("PATCH /api/reservations/[id]", `id=${id}, user=${user.id}`);
+
+    const reservation = mockReservations.find((r) => r.id === id);
+    if (!reservation) {
+      return NextResponse.json(
+        { error: "Not found", message: "予約が見つかりません" },
+        { status: 404 }
+      );
+    }
+
+    if (reservation.user_id !== user.id && user.role !== "admin") {
+      return NextResponse.json(
+        { error: "Forbidden", message: "この予約を更新する権限がありません" },
+        { status: 403 }
+      );
+    }
+
+    if (reservation.status !== "pending") {
+      return NextResponse.json(
+        { error: "Conflict", message: "確定済みの予約は変更できません" },
+        { status: 409 }
+      );
+    }
+
+    const allowedSandboxFields = ["notes"];
+    const sandboxUpdate: Record<string, unknown> = {};
+    for (const field of allowedSandboxFields) {
+      if (body[field] !== undefined) {
+        sandboxUpdate[field] = body[field];
+      }
+    }
+
+    if (Object.keys(sandboxUpdate).length === 0) {
+      return NextResponse.json(
+        { error: "Bad request", message: "更新するフィールドがありません" },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "予約を更新しました",
+      data: { ...reservation, ...sandboxUpdate },
+    });
+  }
+
   // Get existing reservation
   const { data, error: fetchError } = await supabase
     .from("reservations")
@@ -94,16 +176,6 @@ export async function PATCH(
     return NextResponse.json(
       { error: "Conflict", message: "確定済みの予約は変更できません" },
       { status: 409 }
-    );
-  }
-
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json(
-      { error: "Invalid JSON", message: "リクエストボディが不正です" },
-      { status: 400 }
     );
   }
 

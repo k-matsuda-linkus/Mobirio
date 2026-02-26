@@ -14,7 +14,7 @@ export default async function VendorDetailPage({ params }: { params: Promise<{ i
   const { id } = await params;
   const vendor = mockVendors.find((v) => v.slug === id || v.id === id) || mockVendors[0];
   const vendorBikes = mockBikes.filter((b) => b.vendor_id === vendor.id);
-  const vendorReviews = mockReviews.filter((r) => r.vendorId === vendor.id);
+  const vendorReviews = mockReviews.filter((r) => r.vendor_id === vendor.id);
 
   return (
     <div className="max-w-[1200px] mx-auto px-[30px] md:px-[50px] py-[50px] md:py-[100px]">

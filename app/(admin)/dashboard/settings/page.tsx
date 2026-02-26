@@ -1,7 +1,9 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Upload, X, Loader2, Check } from "lucide-react";
+import { Upload, X, Loader2, Check, ExternalLink } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
+import { mockInsuranceCertificates } from "@/lib/mock/insuranceCertificates";
 
 /* ------------------------------------------------------------------ */
 /*  共通: ¥入力フィールド                                               */
@@ -326,6 +328,28 @@ export default function SettingsPage() {
           <p className="text-xs font-sans text-orange-500 mb-[20px]">
             ※ アディショナルワン登録車両は全計算から除外
           </p>
+          {/* 保険証明書サマリー */}
+          {(() => {
+            const latest = mockInsuranceCertificates[0];
+            if (!latest) return null;
+            return (
+              <div className="bg-gray-50 border border-gray-200 p-[12px] mb-[16px] space-y-[4px]">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-sans font-medium text-gray-500">保険契約証明書</p>
+                  <Link href="/dashboard/insurance" className="text-xs text-accent hover:underline flex items-center gap-[4px]">
+                    詳細を見る <ExternalLink size={10} />
+                  </Link>
+                </div>
+                <p className="text-sm font-sans text-gray-700">
+                  現在の保険対象車両数: <span className="font-medium">{latest.totalVehicles}台</span>
+                </p>
+                <p className="text-xs font-sans text-gray-400">
+                  最終更新: {latest.targetYear}年{latest.targetMonth}月（作成日: {latest.documentDate}）
+                </p>
+              </div>
+            );
+          })()}
+
           {insLoading ? (
             <div className="flex items-center gap-[8px] text-sm text-gray-400">
               <Loader2 size={16} className="animate-spin" /> 読み込み中...
@@ -335,22 +359,22 @@ export default function SettingsPage() {
               {/* 保険仕入［クロダ保険支払額］ */}
               <PairHeading label="保険仕入［クロダ保険支払額］" total={(Number(ins.cost_motorcycle) || 0) + (Number(ins.cost_moped) || 0)} />
               <div className="grid grid-cols-2 gap-[16px]">
-                <YenField label="二輪" value={ins.cost_motorcycle} onChange={(v) => setInsField("cost_motorcycle", v)} />
-                <YenField label="原付" value={ins.cost_moped} onChange={(v) => setInsField("cost_moped", v)} />
+                <YenField label="二輪自動車" value={ins.cost_motorcycle} onChange={(v) => setInsField("cost_motorcycle", v)} />
+                <YenField label="一般原動機付自転車" value={ins.cost_moped} onChange={(v) => setInsField("cost_moped", v)} />
               </div>
 
               {/* リンクス手数料 */}
               <PairHeading label="リンクス手数料" total={(Number(ins.linkus_fee_motorcycle) || 0) + (Number(ins.linkus_fee_moped) || 0)} />
               <div className="grid grid-cols-2 gap-[16px]">
-                <YenField label="二輪" value={ins.linkus_fee_motorcycle} onChange={(v) => setInsField("linkus_fee_motorcycle", v)} />
-                <YenField label="原付" value={ins.linkus_fee_moped} onChange={(v) => setInsField("linkus_fee_moped", v)} />
+                <YenField label="二輪自動車" value={ins.linkus_fee_motorcycle} onChange={(v) => setInsField("linkus_fee_motorcycle", v)} />
+                <YenField label="一般原動機付自転車" value={ins.linkus_fee_moped} onChange={(v) => setInsField("linkus_fee_moped", v)} />
               </div>
 
               {/* アディショナルワン手数料 */}
               <PairHeading label="アディショナルワン手数料" total={(Number(ins.additional_one_fee_motorcycle) || 0) + (Number(ins.additional_one_fee_moped) || 0)} />
               <div className="grid grid-cols-2 gap-[16px]">
-                <YenField label="二輪" value={ins.additional_one_fee_motorcycle} onChange={(v) => setInsField("additional_one_fee_motorcycle", v)} />
-                <YenField label="原付" value={ins.additional_one_fee_moped} onChange={(v) => setInsField("additional_one_fee_moped", v)} />
+                <YenField label="二輪自動車" value={ins.additional_one_fee_motorcycle} onChange={(v) => setInsField("additional_one_fee_motorcycle", v)} />
+                <YenField label="一般原動機付自転車" value={ins.additional_one_fee_moped} onChange={(v) => setInsField("additional_one_fee_moped", v)} />
               </div>
 
               {/* 保険請求額（自動計算: 保険仕入 + リンクス手数料 + アディショナルワン手数料） */}
@@ -361,7 +385,7 @@ export default function SettingsPage() {
               </div>
               <div className="grid grid-cols-2 gap-[16px]">
                 <div>
-                  <p className="text-xs font-sans text-gray-500 mb-[4px]">二輪（126cc以上）</p>
+                  <p className="text-xs font-sans text-gray-500 mb-[4px]">二輪自動車（126cc以上）</p>
                   <p className="text-sm font-sans font-medium text-gray-800">
                     &yen;{(
                       (Number(ins.cost_motorcycle) || 0) +
@@ -372,7 +396,7 @@ export default function SettingsPage() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs font-sans text-gray-500 mb-[4px]">原付（125cc以下・EV）</p>
+                  <p className="text-xs font-sans text-gray-500 mb-[4px]">一般原動機付自転車（125cc以下・EV）</p>
                   <p className="text-sm font-sans font-medium text-gray-800">
                     &yen;{(
                       (Number(ins.cost_moped) || 0) +

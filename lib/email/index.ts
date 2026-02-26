@@ -11,3 +11,4 @@ export { vendorNewBookingEmail } from "./vendorNewBooking";
 export { vendorCancellationEmail } from "./vendorCancellation";
 export { reviewRequestEmail } from "./reviewRequest";
 export { paymentReceiptEmail } from "./paymentReceipt";
+export { vendorInvitationEmail } from "./vendorInvitation";

@@ -1,13 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function SettingsPage() {
-  const [profile, setProfile] = useState({
-    name: "田中 太郎",
-    email: "tanaka@example.com",
-    phone: "090-1234-5678",
-  });
+  const router = useRouter();
+  const [profile, setProfile] = useState({ name: "", email: "", phone: "" });
   const [passwords, setPasswords] = useState({ current: "", new_pw: "", confirm: "" });
   const [notifSettings, setNotifSettings] = useState({
     email_reservation: true,
@@ -17,23 +15,123 @@ export default function SettingsPage() {
     push_message: true,
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [isChangingPw, setIsChangingPw] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saveMessage, setSaveMessage] = useState("");
 
-  const handleProfileSave = (e: React.FormEvent) => {
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const res = await fetch("/api/user/profile");
+        if (!res.ok) throw new Error("API error");
+        const data = await res.json();
+        if (data.data) {
+          setProfile({
+            name: data.data.full_name || "",
+            email: data.data.email || "",
+            phone: data.data.phone || "",
+          });
+        }
+      } catch (error) {
+        console.error("Failed to fetch profile:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProfile();
+  }, []);
+
+  const handleProfileSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
-    setTimeout(() => setIsSaving(false), 1000);
+    setSaveMessage("");
+    try {
+      const res = await fetch("/api/user/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ full_name: profile.name, phone: profile.phone }),
+      });
+      if (!res.ok && res.status >= 500) throw new Error("Server error");
+      const data = await res.json();
+      if (data.success) {
+        setSaveMessage("プロフィールを保存しました");
+        setTimeout(() => setSaveMessage(""), 3000);
+      } else {
+        alert(data.message || "保存に失敗しました");
+      }
+    } catch {
+      alert("保存に失敗しました");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handlePasswordChange = (e: React.FormEvent) => {
+  const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     if (passwords.new_pw !== passwords.confirm) {
       alert("新しいパスワードが一致しません");
       return;
     }
-    setPasswords({ current: "", new_pw: "", confirm: "" });
+    if (passwords.new_pw.length < 8) {
+      alert("パスワードは8文字以上で入力してください");
+      return;
+    }
+    setIsChangingPw(true);
+    try {
+      const res = await fetch("/api/user/password", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: passwords.new_pw }),
+      });
+      if (!res.ok && res.status >= 500) throw new Error("Server error");
+      const data = await res.json();
+      if (data.success) {
+        alert("パスワードを変更しました");
+        setPasswords({ current: "", new_pw: "", confirm: "" });
+      } else {
+        alert(data.message || "パスワードの変更に失敗しました");
+      }
+    } catch {
+      alert("パスワードの変更に失敗しました");
+    } finally {
+      setIsChangingPw(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!confirm("本当にアカウントを削除しますか？この操作は取り消せません。")) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch("/api/user/account", { method: "DELETE" });
+      if (!res.ok && res.status >= 500) throw new Error("Server error");
+      const data = await res.json();
+      if (data.success) {
+        router.push("/login");
+      } else {
+        alert(data.message || "退会処理に失敗しました");
+      }
+    } catch {
+      alert("退会処理に失敗しました");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const inputClass = "w-full px-[14px] py-[12px] border border-gray-200 text-sm font-sans text-black placeholder:text-gray-400 focus:outline-none focus:border-black transition-colors";
+
+  if (loading) {
+    return (
+      <div className="max-w-[640px]">
+        <h1 className="font-serif text-2xl font-light text-black mb-[32px]">設定</h1>
+        <div className="space-y-[20px]">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="h-[48px] bg-gray-50 animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-[640px]">
@@ -59,8 +157,8 @@ export default function SettingsPage() {
             <input
               type="email"
               value={profile.email}
-              onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-              className={inputClass}
+              disabled
+              className={`${inputClass} bg-gray-50 text-gray-400`}
             />
           </div>
           <div>
@@ -72,13 +170,18 @@ export default function SettingsPage() {
               className={inputClass}
             />
           </div>
-          <button
-            type="submit"
-            disabled={isSaving}
-            className="bg-black text-white px-[24px] py-[12px] text-sm font-sans font-medium hover:bg-gray-900 transition-colors disabled:opacity-50"
-          >
-            {isSaving ? "保存中..." : "プロフィールを保存"}
-          </button>
+          <div className="flex items-center gap-[12px]">
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="bg-black text-white px-[24px] py-[12px] text-sm font-sans font-medium hover:bg-gray-900 transition-colors disabled:opacity-50"
+            >
+              {isSaving ? "保存中..." : "プロフィールを保存"}
+            </button>
+            {saveMessage && (
+              <span className="text-sm font-sans text-status-confirmed">{saveMessage}</span>
+            )}
+          </div>
         </form>
       </section>
 
@@ -119,9 +222,10 @@ export default function SettingsPage() {
           </div>
           <button
             type="submit"
-            className="bg-black text-white px-[24px] py-[12px] text-sm font-sans font-medium hover:bg-gray-900 transition-colors"
+            disabled={isChangingPw}
+            className="bg-black text-white px-[24px] py-[12px] text-sm font-sans font-medium hover:bg-gray-900 transition-colors disabled:opacity-50"
           >
-            パスワードを変更
+            {isChangingPw ? "変更中..." : "パスワードを変更"}
           </button>
         </form>
       </section>
@@ -207,14 +311,11 @@ export default function SettingsPage() {
           アカウントを削除すると、すべてのデータが完全に削除されます。この操作は取り消せません。
         </p>
         <button
-          onClick={() => {
-            if (confirm("本当にアカウントを削除しますか？この操作は取り消せません。")) {
-              alert("アカウント削除処理を開始しました");
-            }
-          }}
-          className="border border-status-cancelled text-status-cancelled px-[24px] py-[12px] text-sm font-sans font-medium hover:bg-status-cancelled/5 transition-colors"
+          onClick={handleDeleteAccount}
+          disabled={isDeleting}
+          className="border border-status-cancelled text-status-cancelled px-[24px] py-[12px] text-sm font-sans font-medium hover:bg-status-cancelled/5 transition-colors disabled:opacity-50"
         >
-          アカウントを削除する
+          {isDeleting ? "処理中..." : "アカウントを削除する"}
         </button>
       </section>
     </div>

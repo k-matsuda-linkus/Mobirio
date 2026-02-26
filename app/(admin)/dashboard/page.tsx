@@ -4,8 +4,9 @@ import { AdminStatsCard } from "@/components/admin/AdminStatsCard";
 import { ReportChart } from "@/components/admin/ReportChart";
 import { AdminTable } from "@/components/admin/AdminTable";
 import { StatusBadge } from "@/components/admin/StatusBadge";
-import { CalendarDays, TrendingUp, Store, Users, Bike, Star, AlertTriangle } from "lucide-react";
+import { CalendarDays, TrendingUp, Store, Users, Bike, Star, AlertTriangle, Shield } from "lucide-react";
 import { mockReservations } from "@/lib/mock/reservations";
+import { mockInsuranceCertificates } from "@/lib/mock/insuranceCertificates";
 import { mockVendors } from "@/lib/mock/vendors";
 import { mockUsers } from "@/lib/mock/users";
 import { mockBikes } from "@/lib/mock/bikes";
@@ -90,10 +91,36 @@ const monthlyRevenueData = [
   { label: "2月", value: Math.round(monthlyRevenue * 0.85) },
 ];
 
+// 保険証明書アラート判定
+const insuranceAlertNeeded = (() => {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+  const currentDay = now.getDate();
+  return currentDay >= 25 && !mockInsuranceCertificates.some(
+    (c) => c.targetYear === currentYear && c.targetMonth === currentMonth
+  );
+})();
+
 export default function DashboardPage() {
   return (
     <div>
       <h1 className="font-serif text-2xl font-light mb-[30px]">ダッシュボード</h1>
+
+      {/* 保険証明書アラート */}
+      {insuranceAlertNeeded && (
+        <div className="bg-yellow-50 border border-yellow-200 p-[16px] mb-[30px] flex items-start gap-[12px]">
+          <Shield className="w-[20px] h-[20px] text-yellow-600 flex-shrink-0 mt-[2px]" />
+          <div>
+            <p className="text-sm font-sans font-medium text-yellow-800">
+              保険契約証明書をアップロードしてください。
+            </p>
+            <Link href="/dashboard/insurance" className="text-sm text-accent hover:underline mt-[4px] inline-block">
+              保険証明書管理へ →
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* KPIカード */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[20px] mb-[40px]">

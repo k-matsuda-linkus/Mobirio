@@ -1,14 +1,13 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { Plus, X, Building2, Store, ArrowLeft, Check } from "lucide-react";
+import { Plus, X, Building2, Store, ArrowLeft, Mail, Send } from "lucide-react";
 import { AdminFilterBar } from "@/components/admin/AdminFilterBar";
 import { AdminTable } from "@/components/admin/AdminTable";
 import { StatusBadge } from "@/components/admin/StatusBadge";
 import { mockVendors, VENDOR_PLANS } from "@/lib/mock/vendors";
 import type { VendorPlan } from "@/lib/mock/vendors";
 import { mockBusinessEntities } from "@/lib/mock/business";
-import type { BusinessEntity } from "@/lib/mock/business";
 import { mockBikes } from "@/lib/mock/bikes";
 import { mockReservations } from "@/lib/mock/reservations";
 import { mockReviews } from "@/lib/mock/reviews";
@@ -18,7 +17,7 @@ const vendors = mockVendors.map((v) => {
   const vendorRes = mockReservations.filter((r) => r.vendor_id === v.id && r.status !== "cancelled");
   const revenue = vendorRes.reduce((sum, r) => sum + r.total_amount, 0);
   const vendorReviews = mockReviews.filter((r) => {
-    const bike = mockBikes.find((b) => b.id === r.bikeId);
+    const bike = mockBikes.find((b) => b.id === r.bike_id);
     return bike?.vendor_id === v.id;
   });
   const avgRating = vendorReviews.length > 0
@@ -46,21 +45,7 @@ const sl = (s: string) => {
   return { label: "承認待ち", variant: "warning" as const };
 };
 
-type RegStep = "select" | "business" | "shop";
-
-const emptyBusiness = {
-  type: "corporation" as BusinessEntity["type"],
-  name: "",
-  corporateNumber: "",
-  representative: "",
-  postalCode: "",
-  address: "",
-  phone: "",
-  fax: "",
-  email: "",
-  staff: "",
-  staffPhone: "",
-};
+type RegStep = "select" | "invite";
 
 export default function VendorsPage() {
   const [sf, setSf] = useState("");
@@ -69,16 +54,18 @@ export default function VendorsPage() {
   const [regStep, setRegStep] = useState<RegStep>("select");
   const [regType, setRegType] = useState<"new" | "existing">("new");
 
-  // 事業者情報（新規用）
-  const [bizForm, setBizForm] = useState({ ...emptyBusiness });
+  // 招待メールアドレス
+  const [inviteEmail, setInviteEmail] = useState("");
 
   // 既存事業者選択用
   const [selectedBizId, setSelectedBizId] = useState("");
   const [bizSearch, setBizSearch] = useState("");
 
-  // 店舗情報
-  const [newShopName, setNewShopName] = useState("");
+  // 契約プラン
   const [newPlan, setNewPlan] = useState<VendorPlan>("rental_bike");
+
+  // 送信中フラグ
+  const [sending, setSending] = useState(false);
 
   const pc = vendors.filter((v) => v.status === "pending").length;
   let filtered = sf ? vendors.filter((v) => v.status === sf) : vendors;
@@ -97,36 +84,65 @@ export default function VendorsPage() {
     setShowNewModal(true);
     setRegStep("select");
     setRegType("new");
-    setBizForm({ ...emptyBusiness });
+    setInviteEmail("");
     setSelectedBizId("");
     setBizSearch("");
-    setNewShopName("");
     setNewPlan("rental_bike");
+    setSending(false);
   };
 
   const closeModal = () => {
     setShowNewModal(false);
   };
 
-  const updateBizForm = (key: string, value: string) => {
-    setBizForm((prev) => ({ ...prev, [key]: value }));
-  };
+  const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-  const canProceedBusiness = regType === "new"
-    ? bizForm.name.trim() && bizForm.representative.trim() && bizForm.phone.trim() && bizForm.email.trim()
-    : !!selectedBizId;
+  const canSend = regType === "new"
+    ? isValidEmail(inviteEmail)
+    : !!selectedBizId && isValidEmail(inviteEmail);
 
-  const canRegister = newShopName.trim();
+  // 送信結果メッセージ
+  const [sendResult, setSendResult] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
-  const handleRegister = () => {
-    if (!canRegister) return;
-    const bizName = regType === "new"
-      ? bizForm.name
-      : mockBusinessEntities.find((b) => b.id === selectedBizId)?.name;
-    alert(
-      `事業者「${bizName}」の店舗「${newShopName}」を${VENDOR_PLANS[newPlan].label}で登録しました。\n事業者にページを引き渡します。`
-    );
-    closeModal();
+  const handleSendInvite = async () => {
+    if (!canSend) return;
+    setSending(true);
+    setSendResult(null);
+
+    try {
+      const res = await fetch("/api/admin/vendors/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: inviteEmail,
+          plan: newPlan,
+          regType,
+          businessId: regType === "existing" ? selectedBizId : undefined,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setSendResult({ type: "error", message: data.error || "送信に失敗しました" });
+        setSending(false);
+        return;
+      }
+
+      setSendResult({
+        type: "success",
+        message: `${inviteEmail} にマジックリンクを送信しました。`,
+      });
+      setSending(false);
+      // 成功時は少し遅らせてモーダルを閉じる
+      setTimeout(() => {
+        closeModal();
+        setSendResult(null);
+      }, 2000);
+    } catch {
+      setSendResult({ type: "error", message: "通信エラーが発生しました" });
+      setSending(false);
+    }
   };
 
   return (
@@ -153,13 +169,13 @@ export default function VendorsPage() {
       {showNewModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={closeModal} />
-          <div className="relative z-10 bg-white w-[560px] max-h-[90vh] flex flex-col border border-gray-200 shadow-xl">
+          <div className="relative z-10 bg-white w-[520px] max-h-[90vh] flex flex-col border border-gray-200 shadow-xl">
             {/* ヘッダー */}
             <div className="flex items-center justify-between px-[24px] py-[16px] border-b border-gray-100 shrink-0">
               <div className="flex items-center gap-[8px]">
-                {regStep !== "select" && (
+                {regStep === "invite" && (
                   <button
-                    onClick={() => setRegStep(regStep === "shop" ? "business" : "select")}
+                    onClick={() => setRegStep("select")}
                     className="p-[4px] text-gray-400 hover:text-gray-600"
                   >
                     <ArrowLeft className="w-[16px] h-[16px]" />
@@ -167,57 +183,32 @@ export default function VendorsPage() {
                 )}
                 <h2 className="text-base font-medium text-gray-800">
                   {regStep === "select" && "新規登録"}
-                  {regStep === "business" && (regType === "new" ? "1. 事業者情報" : "1. 事業者選択")}
-                  {regStep === "shop" && "2. 店舗情報"}
+                  {regStep === "invite" && (regType === "new" ? "新規事業者登録" : "既存事業者に店舗追加")}
                 </h2>
               </div>
-              <div className="flex items-center gap-[12px]">
-                {/* ステップインジケーター */}
-                {regStep !== "select" && (
-                  <div className="flex items-center gap-[4px]">
-                    <span className={
-                      "w-[20px] h-[20px] flex items-center justify-center text-xs " +
-                      (regStep === "business"
-                        ? "bg-accent text-white"
-                        : "bg-accent/20 text-accent")
-                    }>
-                      {regStep === "shop" ? <Check className="w-[12px] h-[12px]" /> : "1"}
-                    </span>
-                    <span className="w-[16px] h-[1px] bg-gray-200" />
-                    <span className={
-                      "w-[20px] h-[20px] flex items-center justify-center text-xs " +
-                      (regStep === "shop"
-                        ? "bg-accent text-white"
-                        : "bg-gray-100 text-gray-400")
-                    }>
-                      2
-                    </span>
-                  </div>
-                )}
-                <button onClick={closeModal} className="p-[4px] text-gray-400 hover:text-gray-600">
-                  <X className="w-[18px] h-[18px]" />
-                </button>
-              </div>
+              <button onClick={closeModal} className="p-[4px] text-gray-400 hover:text-gray-600">
+                <X className="w-[18px] h-[18px]" />
+              </button>
             </div>
 
-            {/* コンテンツ（スクロール可） */}
+            {/* コンテンツ */}
             <div className="overflow-y-auto flex-1">
               {/* ステップ0: 登録種別の選択 */}
               {regStep === "select" && (
                 <div className="px-[24px] py-[24px] space-y-[12px]">
                   <p className="text-xs text-gray-400 mb-[8px]">登録種別を選択してください。</p>
                   <button
-                    onClick={() => { setRegType("new"); setRegStep("business"); }}
+                    onClick={() => { setRegType("new"); setRegStep("invite"); }}
                     className="w-full flex items-center gap-[16px] border border-gray-200 p-[20px] hover:border-accent hover:bg-accent/5 transition-colors text-left"
                   >
                     <Building2 className="w-[24px] h-[24px] text-accent shrink-0" />
                     <div>
                       <p className="text-sm font-medium text-gray-800">新規事業者登録</p>
-                      <p className="text-xs text-gray-400 mt-[2px]">新しい事業者との契約 → 店舗を登録する</p>
+                      <p className="text-xs text-gray-400 mt-[2px]">新しい事業者との契約 → マジックリンクで招待</p>
                     </div>
                   </button>
                   <button
-                    onClick={() => { setRegType("existing"); setRegStep("business"); }}
+                    onClick={() => { setRegType("existing"); setRegStep("invite"); }}
                     className="w-full flex items-center gap-[16px] border border-gray-200 p-[20px] hover:border-accent hover:bg-accent/5 transition-colors text-left"
                   >
                     <Store className="w-[24px] h-[24px] text-accent shrink-0" />
@@ -229,240 +220,73 @@ export default function VendorsPage() {
                 </div>
               )}
 
-              {/* ステップ1: 事業者情報 */}
-              {regStep === "business" && regType === "new" && (
-                <div className="px-[24px] py-[24px] space-y-[16px]">
-                  <p className="text-xs text-gray-400">新しい事業者の基本情報を入力してください。</p>
-
-                  {/* 事業者区分 */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-[6px]">事業者区分</label>
-                    <div className="flex gap-[16px]">
-                      {(["corporation", "sole_proprietor"] as const).map((t) => (
-                        <label key={t} className="flex items-center gap-[6px] cursor-pointer">
-                          <input
-                            type="radio"
-                            name="bizType"
-                            checked={bizForm.type === t}
-                            onChange={() => updateBizForm("type", t)}
-                            className="accent-accent"
-                          />
-                          <span className="text-sm">{t === "corporation" ? "法人" : "個人事業主"}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* 事業者名 */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-[4px]">
-                      事業者名 <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={bizForm.name}
-                      onChange={(e) => updateBizForm("name", e.target.value)}
-                      className="w-full border border-gray-200 px-[12px] py-[10px] text-sm focus:border-accent focus:outline-none"
-                      placeholder="例: サンシャインモータース株式会社"
-                    />
-                  </div>
-
-                  {/* 法人番号 */}
-                  {bizForm.type === "corporation" && (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-[4px]">法人番号（13桁）</label>
-                      <input
-                        type="text"
-                        value={bizForm.corporateNumber}
-                        onChange={(e) => updateBizForm("corporateNumber", e.target.value)}
-                        className="w-full border border-gray-200 px-[12px] py-[10px] text-sm focus:border-accent focus:outline-none max-w-[240px]"
-                        placeholder="1234567890123"
-                        maxLength={13}
-                      />
-                    </div>
-                  )}
-
-                  {/* 代表者名 */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-[4px]">
-                      代表者名 <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={bizForm.representative}
-                      onChange={(e) => updateBizForm("representative", e.target.value)}
-                      className="w-full border border-gray-200 px-[12px] py-[10px] text-sm focus:border-accent focus:outline-none max-w-[300px]"
-                      placeholder="山田太郎"
-                    />
-                  </div>
-
-                  {/* 住所 */}
-                  <div className="grid grid-cols-3 gap-[12px]">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-[4px]">郵便番号</label>
-                      <input
-                        type="text"
-                        value={bizForm.postalCode}
-                        onChange={(e) => updateBizForm("postalCode", e.target.value)}
-                        className="w-full border border-gray-200 px-[12px] py-[10px] text-sm focus:border-accent focus:outline-none"
-                        placeholder="000-0000"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="block text-xs font-medium text-gray-500 mb-[4px]">住所</label>
-                      <input
-                        type="text"
-                        value={bizForm.address}
-                        onChange={(e) => updateBizForm("address", e.target.value)}
-                        className="w-full border border-gray-200 px-[12px] py-[10px] text-sm focus:border-accent focus:outline-none"
-                        placeholder="宮崎県宮崎市..."
-                      />
-                    </div>
-                  </div>
-
-                  {/* 連絡先 */}
-                  <div className="grid grid-cols-2 gap-[12px]">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-[4px]">
-                        電話番号 <span className="text-red-500">*</span>
+              {/* ステップ1: 招待情報入力 */}
+              {regStep === "invite" && (
+                <div className="px-[24px] py-[24px] space-y-[20px]">
+                  {/* 既存事業者選択（既存パターンのみ） */}
+                  {regType === "existing" && (
+                    <div className="space-y-[8px]">
+                      <label className="block text-xs font-medium text-gray-500">
+                        事業者 <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="text"
-                        value={bizForm.phone}
-                        onChange={(e) => updateBizForm("phone", e.target.value)}
+                        value={bizSearch}
+                        onChange={(e) => { setBizSearch(e.target.value); setSelectedBizId(""); }}
                         className="w-full border border-gray-200 px-[12px] py-[10px] text-sm focus:border-accent focus:outline-none"
-                        placeholder="0985-12-3456"
+                        placeholder="事業者名で検索..."
                       />
+                      <div className="border border-gray-200 max-h-[200px] overflow-y-auto">
+                        {filteredBizList.length > 0 ? (
+                          filteredBizList.map((b) => {
+                            const shopCount = mockVendors.filter((v) => v.business_id === b.id).length;
+                            return (
+                              <button
+                                key={b.id}
+                                onClick={() => { setSelectedBizId(b.id); setBizSearch(b.name); }}
+                                className={
+                                  "w-full flex items-center justify-between px-[12px] py-[10px] text-left border-b border-gray-50 last:border-b-0 " +
+                                  (selectedBizId === b.id
+                                    ? "bg-accent/5"
+                                    : "hover:bg-gray-50")
+                                }
+                              >
+                                <div>
+                                  <p className={
+                                    "text-sm font-medium " +
+                                    (selectedBizId === b.id ? "text-accent" : "text-gray-800")
+                                  }>
+                                    {b.name}
+                                  </p>
+                                  <p className="text-xs text-gray-400 mt-[2px]">{b.address}</p>
+                                </div>
+                                <span className="text-xs text-gray-400 shrink-0 ml-[12px]">{shopCount}店舗</span>
+                              </button>
+                            );
+                          })
+                        ) : (
+                          <p className="px-[12px] py-[10px] text-xs text-gray-400">該当する事業者がありません</p>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-[4px]">FAX番号</label>
-                      <input
-                        type="text"
-                        value={bizForm.fax}
-                        onChange={(e) => updateBizForm("fax", e.target.value)}
-                        className="w-full border border-gray-200 px-[12px] py-[10px] text-sm focus:border-accent focus:outline-none"
-                        placeholder="0985-12-3457"
-                      />
-                    </div>
-                  </div>
+                  )}
 
-                  {/* メール */}
+                  {/* メールアドレス */}
                   <div>
                     <label className="block text-xs font-medium text-gray-500 mb-[4px]">
-                      メールアドレス <span className="text-red-500">*</span>
+                      <Mail className="w-[12px] h-[12px] inline mr-[4px]" />
+                      管理者メールアドレス <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="email"
-                      value={bizForm.email}
-                      onChange={(e) => updateBizForm("email", e.target.value)}
-                      className="w-full border border-gray-200 px-[12px] py-[10px] text-sm focus:border-accent focus:outline-none max-w-[360px]"
-                      placeholder="info@example.jp"
-                    />
-                  </div>
-
-                  {/* 担当者 */}
-                  <div className="grid grid-cols-2 gap-[12px]">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-[4px]">担当者名</label>
-                      <input
-                        type="text"
-                        value={bizForm.staff}
-                        onChange={(e) => updateBizForm("staff", e.target.value)}
-                        className="w-full border border-gray-200 px-[12px] py-[10px] text-sm focus:border-accent focus:outline-none"
-                        placeholder="鈴木一郎"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-500 mb-[4px]">担当者電話</label>
-                      <input
-                        type="text"
-                        value={bizForm.staffPhone}
-                        onChange={(e) => updateBizForm("staffPhone", e.target.value)}
-                        className="w-full border border-gray-200 px-[12px] py-[10px] text-sm focus:border-accent focus:outline-none"
-                        placeholder="0985-12-3458"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ステップ1: 既存事業者選択 */}
-              {regStep === "business" && regType === "existing" && (
-                <div className="px-[24px] py-[24px] space-y-[16px]">
-                  <p className="text-xs text-gray-400">店舗を追加する事業者を選択してください。</p>
-                  <div>
-                    <input
-                      type="text"
-                      value={bizSearch}
-                      onChange={(e) => { setBizSearch(e.target.value); setSelectedBizId(""); }}
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
                       className="w-full border border-gray-200 px-[12px] py-[10px] text-sm focus:border-accent focus:outline-none"
-                      placeholder="事業者名で検索..."
+                      placeholder="vendor@example.jp"
                     />
-                  </div>
-                  <div className="border border-gray-200 max-h-[280px] overflow-y-auto">
-                    {filteredBizList.length > 0 ? (
-                      filteredBizList.map((b) => {
-                        const shopCount = mockVendors.filter((v) => v.business_id === b.id).length;
-                        return (
-                          <button
-                            key={b.id}
-                            onClick={() => { setSelectedBizId(b.id); setBizSearch(b.name); }}
-                            className={
-                              "w-full flex items-center justify-between px-[12px] py-[12px] text-left border-b border-gray-50 last:border-b-0 " +
-                              (selectedBizId === b.id
-                                ? "bg-accent/5"
-                                : "hover:bg-gray-50")
-                            }
-                          >
-                            <div>
-                              <p className={
-                                "text-sm font-medium " +
-                                (selectedBizId === b.id ? "text-accent" : "text-gray-800")
-                              }>
-                                {b.name}
-                              </p>
-                              <p className="text-xs text-gray-400 mt-[2px]">{b.address}</p>
-                            </div>
-                            <span className="text-xs text-gray-400 shrink-0 ml-[12px]">{shopCount}店舗</span>
-                          </button>
-                        );
-                      })
-                    ) : (
-                      <p className="px-[12px] py-[12px] text-xs text-gray-400">該当する事業者がありません</p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* ステップ2: 店舗情報 */}
-              {regStep === "shop" && (
-                <div className="px-[24px] py-[24px] space-y-[20px]">
-                  {/* 選択済み事業者の確認 */}
-                  <div className="bg-gray-50 border border-gray-100 px-[16px] py-[12px]">
-                    <p className="text-xs text-gray-400 mb-[2px]">事業者</p>
-                    <p className="text-sm font-medium text-gray-800">
-                      {regType === "new"
-                        ? bizForm.name
-                        : mockBusinessEntities.find((b) => b.id === selectedBizId)?.name}
+                    <p className="text-xs text-gray-400 mt-[4px]">
+                      このアドレスにマジックリンクを送信します。ベンダーが登録作業を行います。
                     </p>
-                  </div>
-
-                  <p className="text-xs text-gray-400">
-                    この事業者に紐づく店舗情報を入力してください。登録後、事業者側で詳細情報を入力できるようになります。
-                  </p>
-
-                  {/* 店舗名 */}
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-[4px]">
-                      店舗名 <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={newShopName}
-                      onChange={(e) => setNewShopName(e.target.value)}
-                      className="w-full border border-gray-200 px-[12px] py-[10px] text-sm focus:border-accent focus:outline-none"
-                      placeholder="例: サンシャインモータース宮崎本店"
-                    />
                   </div>
 
                   {/* 契約プラン */}
@@ -504,12 +328,34 @@ export default function VendorsPage() {
                       )}
                     </div>
                   </div>
+
+                  {/* フロー説明 */}
+                  <div className="bg-gray-50 border border-gray-100 px-[16px] py-[12px]">
+                    <p className="text-xs font-medium text-gray-600 mb-[6px]">送信後の流れ</p>
+                    <ol className="text-xs text-gray-500 space-y-[4px] list-decimal list-inside">
+                      <li>入力されたメールアドレスにマジックリンクを送信</li>
+                      <li>ベンダーがリンクから事業者・店舗情報を入力</li>
+                      <li>登録完了後、ベンダー一覧に「承認待ち」として表示</li>
+                    </ol>
+                  </div>
+
+                  {/* 送信結果メッセージ */}
+                  {sendResult && (
+                    <div className={
+                      "px-[16px] py-[12px] text-sm " +
+                      (sendResult.type === "success"
+                        ? "bg-green-50 border border-green-200 text-green-700"
+                        : "bg-red-50 border border-red-200 text-red-700")
+                    }>
+                      {sendResult.message}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
             {/* フッター */}
-            {regStep !== "select" && (
+            {regStep === "invite" && (
               <div className="flex items-center justify-end gap-[8px] px-[24px] py-[16px] border-t border-gray-100 shrink-0">
                 <button
                   onClick={closeModal}
@@ -517,24 +363,14 @@ export default function VendorsPage() {
                 >
                   キャンセル
                 </button>
-                {regStep === "business" && (
-                  <button
-                    onClick={() => setRegStep("shop")}
-                    disabled={!canProceedBusiness}
-                    className="bg-accent text-white px-[20px] py-[10px] text-sm hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    次へ：店舗情報
-                  </button>
-                )}
-                {regStep === "shop" && (
-                  <button
-                    onClick={handleRegister}
-                    disabled={!canRegister}
-                    className="bg-accent text-white px-[20px] py-[10px] text-sm hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    登録して事業者に引き渡す
-                  </button>
-                )}
+                <button
+                  onClick={handleSendInvite}
+                  disabled={!canSend || sending}
+                  className="flex items-center gap-[6px] bg-accent text-white px-[20px] py-[10px] text-sm hover:bg-accent/90 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <Send className="w-[14px] h-[14px]" />
+                  {sending ? "送信中..." : "マジックリンクを送信"}
+                </button>
               </div>
             )}
           </div>

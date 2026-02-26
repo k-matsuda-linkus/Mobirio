@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 
 export default function RegisterPage() {
   const [form, setForm] = useState({
@@ -13,6 +14,8 @@ export default function RegisterPage() {
     agreeTerms: false,
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [isSent, setIsSent] = useState(false);
 
   const update = (key: string, value: string | boolean) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -20,18 +23,76 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (form.password !== form.confirmPassword) {
-      alert("パスワードが一致しません");
+      setError("パスワードが一致しません");
       return;
     }
     setIsLoading(true);
-    setTimeout(() => setIsLoading(false), 1500);
+    setError("");
+
+    const supabase = createClient();
+    const { error: signUpError } = await supabase.auth.signUp({
+      email: form.email,
+      password: form.password,
+      options: {
+        data: {
+          full_name: form.name,
+          phone: form.phone,
+          user_type: "customer",
+        },
+      },
+    });
+
+    setIsLoading(false);
+
+    if (signUpError) {
+      if (signUpError.status === 422 || signUpError.message?.includes("already")) {
+        setError("このメールアドレスは既に登録されています");
+      } else {
+        setError("登録に失敗しました。もう一度お試しください。");
+      }
+      return;
+    }
+
+    setIsSent(true);
   };
+
+  if (isSent) {
+    return (
+      <div className="text-center">
+        <div className="w-[56px] h-[56px] bg-accent/10 flex items-center justify-center mx-auto mb-[20px]">
+          <svg className="w-[28px] h-[28px] text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="square" strokeLinejoin="miter" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+          </svg>
+        </div>
+        <h2 className="font-serif text-xl font-light text-black mb-[12px]">
+          確認メールを送信しました
+        </h2>
+        <p className="text-sm font-sans text-gray-500 mb-[24px] leading-relaxed">
+          <span className="text-black font-medium">{form.email}</span> 宛に<br />
+          確認メールを送信しました。<br />
+          メール内のリンクをクリックして登録を完了してください。
+        </p>
+        <Link
+          href="/login"
+          className="inline-block text-sm font-sans text-gray-500 hover:text-black transition-colors underline"
+        >
+          ログインに戻る
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div>
       <h1 className="font-serif text-2xl font-light text-center text-black mb-[32px]">
         新規登録
       </h1>
+
+      {error && (
+        <div className="mb-[20px] px-[14px] py-[12px] bg-red-50 border border-red-200 text-sm font-sans text-red-600">
+          {error}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-[18px]">
         <div>

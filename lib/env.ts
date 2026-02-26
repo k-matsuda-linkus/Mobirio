@@ -10,6 +10,15 @@ export const env = {
   supabaseServiceKey: () => getEnv("SUPABASE_SERVICE_ROLE_KEY", ""),
   squareAccessToken: () => getEnv("SQUARE_ACCESS_TOKEN", ""),
   squareEnvironment: () => getEnv("SQUARE_ENVIRONMENT", "sandbox"),
-  appUrl: () => getEnv("NEXT_PUBLIC_APP_URL", "http://localhost:3000"),
+  appUrl: () => {
+    const url = process.env.NEXT_PUBLIC_APP_URL;
+    if (!url) {
+      if (process.env.NODE_ENV === "production") {
+        console.warn("WARNING: NEXT_PUBLIC_APP_URL is not set in production. Using localhost fallback.");
+      }
+      return "http://localhost:3000";
+    }
+    return url;
+  },
   cronSecret: () => getEnv("CRON_SECRET", ""),
 };

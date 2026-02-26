@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 export default function SetPasswordPage() {
   const router = useRouter();
@@ -9,19 +10,35 @@ export default function SetPasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isDone, setIsDone] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirmPassword) {
-      alert("パスワードが一致しません");
+      setError("パスワードが一致しません");
       return;
     }
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      setIsDone(true);
-      setTimeout(() => router.push("/login"), 2000);
-    }, 1500);
+    setError("");
+
+    const supabase = createClient();
+    const { error: updateError } = await supabase.auth.updateUser({
+      password,
+    });
+
+    setIsLoading(false);
+
+    if (updateError) {
+      if (updateError.message?.includes("characters") || updateError.message?.includes("short")) {
+        setError("パスワードは8文字以上で設定してください");
+      } else {
+        setError("パスワードの更新に失敗しました。もう一度お試しください。");
+      }
+      return;
+    }
+
+    setIsDone(true);
+    setTimeout(() => router.push("/login"), 2000);
   };
 
   if (isDone) {
@@ -50,6 +67,12 @@ export default function SetPasswordPage() {
       <p className="text-sm font-sans text-gray-500 text-center mb-[32px]">
         新しいパスワードを入力してください
       </p>
+
+      {error && (
+        <div className="mb-[20px] px-[14px] py-[12px] bg-red-50 border border-red-200 text-sm font-sans text-red-600">
+          {error}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-[20px]">
         <div>

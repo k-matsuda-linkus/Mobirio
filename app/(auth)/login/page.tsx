@@ -2,16 +2,65 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setTimeout(() => setIsLoading(false), 1500);
+    setError("");
+
+    const supabase = createClient();
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (signInError) {
+      setError("メールアドレスまたはパスワードが正しくありません");
+      setIsLoading(false);
+      return;
+    }
+
+    // URL パラメータの redirect があればそちらへ（相対パスのみ許可）
+    const params = new URLSearchParams(window.location.search);
+    const redirect = params.get("redirect");
+    if (redirect && redirect.startsWith("/") && !redirect.startsWith("//")) {
+      router.push(redirect);
+      return;
+    }
+
+    // ロール別リダイレクト
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from("users")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+
+        if (profile?.role === "vendor") {
+          router.push("/vendor");
+        } else if (profile?.role === "admin") {
+          router.push("/dashboard");
+        } else {
+          router.push("/mypage");
+        }
+      } else {
+        router.push("/mypage");
+      }
+    } catch {
+      // プロフィール取得失敗時もマイページへ遷移
+      router.push("/mypage");
+    }
   };
 
   return (
@@ -19,6 +68,12 @@ export default function LoginPage() {
       <h1 className="font-serif text-2xl font-light text-center text-black mb-[32px]">
         ログイン
       </h1>
+
+      {error && (
+        <div className="mb-[20px] px-[14px] py-[12px] bg-red-50 border border-red-200 text-sm font-sans text-red-600">
+          {error}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-[20px]">
         <div>

@@ -6,6 +6,7 @@ export interface MockUser {
   role: 'customer' | 'vendor' | 'admin';
   is_banned: boolean;
   created_at: string;
+  updated_at: string;
 }
 
 export const mockUsers: MockUser[] = [
@@ -17,6 +18,7 @@ export const mockUsers: MockUser[] = [
     role: 'customer',
     is_banned: false,
     created_at: '2025-06-15',
+    updated_at: '2025-06-15',
   },
   {
     id: 'user-002',
@@ -26,6 +28,7 @@ export const mockUsers: MockUser[] = [
     role: 'customer',
     is_banned: false,
     created_at: '2025-07-20',
+    updated_at: '2025-07-20',
   },
   {
     id: 'user-003',
@@ -35,6 +38,7 @@ export const mockUsers: MockUser[] = [
     role: 'customer',
     is_banned: false,
     created_at: '2025-08-10',
+    updated_at: '2025-08-10',
   },
   {
     id: 'vendor-user-001',
@@ -44,6 +48,7 @@ export const mockUsers: MockUser[] = [
     role: 'vendor',
     is_banned: false,
     created_at: '2025-05-01',
+    updated_at: '2025-05-01',
   },
   {
     id: 'admin-001',
@@ -53,6 +58,7 @@ export const mockUsers: MockUser[] = [
     role: 'admin',
     is_banned: false,
     created_at: '2025-01-01',
+    updated_at: '2025-01-01',
   },
 ];
 

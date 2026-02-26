@@ -1,34 +1,112 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Bell, CalendarDays, Star, CreditCard, Info } from "lucide-react";
 
 const ICON_MAP: Record<string, typeof Bell> = {
+  reservation: CalendarDays,
   reservation_confirmed: CalendarDays,
   reservation_cancelled: CalendarDays,
   reservation_reminder: CalendarDays,
+  booking_cancelled: CalendarDays,
+  review: Star,
   review_request: Star,
+  payment: CreditCard,
   payment_received: CreditCard,
+  promotion: Info,
   system: Info,
 };
 
-const INITIAL_NOTIFICATIONS = [
-  { id: "n-001", type: "reservation_confirmed", title: "予約が確認されました", message: "Honda PCX 160 の予約（2025/02/15）がベンダーにより確認されました。", time: "2時間前", isRead: false },
-  { id: "n-002", type: "review_request", title: "レビューのお願い", message: "Yamaha MT-09 のご利用ありがとうございました。ぜひレビューをお寄せください。", time: "1日前", isRead: false },
-  { id: "n-003", type: "system", title: "冬季限定キャンペーン", message: "冬季限定20%OFFキャンペーン実施中！対象バイクをチェック。", time: "3日前", isRead: false },
-  { id: "n-004", type: "payment_received", title: "お支払い完了", message: "Kawasaki Ninja 400 のレンタル料金 ¥13,200 のお支払いが完了しました。", time: "5日前", isRead: true },
-  { id: "n-005", type: "reservation_reminder", title: "明日のご予約リマインダー", message: "Suzuki Address 125 の受取は明日 10:00 です。お忘れなく。", time: "1週間前", isRead: true },
-  { id: "n-006", type: "reservation_cancelled", title: "予約がキャンセルされました", message: "ベンダー都合によりご予約がキャンセルされました。全額返金いたします。", time: "2週間前", isRead: true },
-];
+function timeAgo(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return "たった今";
+  if (minutes < 60) return `${minutes}分前`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}時間前`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}日前`;
+  if (days < 30) return `${Math.floor(days / 7)}週間前`;
+  if (days < 365) return `${Math.floor(days / 30)}ヶ月前`;
+  return `${Math.floor(days / 365)}年前`;
+}
+
+interface NotificationItem {
+  id: string;
+  type: string;
+  title: string;
+  body?: string;
+  message?: string;
+  timestamp?: string;
+  created_at?: string;
+  is_read?: boolean;
+}
 
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const markAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const res = await fetch("/api/notifications");
+        if (!res.ok) throw new Error("API error");
+        const data = await res.json();
+        setNotifications(data.data || []);
+      } catch (error) {
+        console.error("Failed to fetch notifications:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchNotifications();
+  }, []);
+
+  const getIsRead = (n: NotificationItem) => n.is_read ?? false;
+  const unreadCount = notifications.filter((n) => !getIsRead(n)).length;
+
+  const markAllRead = async () => {
+    try {
+      await fetch("/api/notifications", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ markAllRead: true }),
+      });
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    } catch (error) {
+      console.error("Failed to mark all read:", error);
+    }
   };
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const markRead = async (id: string) => {
+    try {
+      await fetch("/api/notifications", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
+      );
+    } catch (error) {
+      console.error("Failed to mark read:", error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div>
+        <h1 className="font-serif text-2xl font-light text-black mb-[24px]">通知</h1>
+        <div className="space-y-[8px]">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-[80px] bg-gray-50 animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -40,53 +118,53 @@ export default function NotificationsPage() {
           </p>
         </div>
         {unreadCount > 0 && (
-          <button
-            onClick={markAllRead}
-            className="text-sm font-sans text-accent hover:underline"
-          >
+          <button onClick={markAllRead} className="text-sm font-sans text-accent hover:underline">
             すべて既読にする
           </button>
         )}
       </div>
 
-      <div className="space-y-[8px]">
-        {notifications.map((n) => {
-          const Icon = ICON_MAP[n.type] || Bell;
-          return (
-            <div
-              key={n.id}
-              className={`flex gap-[14px] p-[16px] border transition-colors cursor-pointer ${
-                n.isRead
-                  ? "bg-white border-gray-100 hover:bg-gray-50"
-                  : "bg-accent/5 border-accent/20 hover:bg-accent/10"
-              }`}
-              onClick={() =>
-                setNotifications((prev) =>
-                  prev.map((item) =>
-                    item.id === n.id ? { ...item, isRead: true } : item
-                  )
-                )
-              }
-            >
-              <div className={`w-[36px] h-[36px] shrink-0 flex items-center justify-center ${
-                n.isRead ? "bg-gray-100" : "bg-accent/10"
-              }`}>
-                <Icon className={`w-[18px] h-[18px] ${n.isRead ? "text-gray-400" : "text-accent"}`} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-[8px]">
-                  <p className={`text-sm font-sans truncate ${n.isRead ? "text-gray-600" : "text-black font-medium"}`}>
-                    {n.title}
-                  </p>
-                  {!n.isRead && <div className="w-[8px] h-[8px] bg-accent shrink-0 mt-[6px]" />}
+      {notifications.length === 0 ? (
+        <div className="text-center py-[60px] text-sm font-sans text-gray-400">
+          通知はありません
+        </div>
+      ) : (
+        <div className="space-y-[8px]">
+          {notifications.map((n) => {
+            const Icon = ICON_MAP[n.type] || Bell;
+            const isRead = getIsRead(n);
+            const message = n.body || n.message || "";
+            const time = n.timestamp || n.created_at || "";
+            return (
+              <div
+                key={n.id}
+                className={`flex gap-[14px] p-[16px] border transition-colors cursor-pointer ${
+                  isRead
+                    ? "bg-white border-gray-100 hover:bg-gray-50"
+                    : "bg-accent/5 border-accent/20 hover:bg-accent/10"
+                }`}
+                onClick={() => !isRead && markRead(n.id)}
+              >
+                <div className={`w-[36px] h-[36px] shrink-0 flex items-center justify-center ${
+                  isRead ? "bg-gray-100" : "bg-accent/10"
+                }`}>
+                  <Icon className={`w-[18px] h-[18px] ${isRead ? "text-gray-400" : "text-accent"}`} />
                 </div>
-                <p className="text-xs font-sans text-gray-500 mt-[4px] line-clamp-2">{n.message}</p>
-                <p className="text-xs font-sans text-gray-400 mt-[6px]">{n.time}</p>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-[8px]">
+                    <p className={`text-sm font-sans truncate ${isRead ? "text-gray-600" : "text-black font-medium"}`}>
+                      {n.title}
+                    </p>
+                    {!isRead && <div className="w-[8px] h-[8px] bg-accent shrink-0 mt-[6px]" />}
+                  </div>
+                  <p className="text-xs font-sans text-gray-500 mt-[4px] line-clamp-2">{message}</p>
+                  <p className="text-xs font-sans text-gray-400 mt-[6px]">{time ? timeAgo(time) : ""}</p>
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

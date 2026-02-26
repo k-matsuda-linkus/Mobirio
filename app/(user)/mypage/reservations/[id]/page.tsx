@@ -1,8 +1,26 @@
-import Link from "next/link";
-import { mockReservations, type ReservationStatus } from "@/lib/mock/reservations";
+"use client";
 
-interface Props {
-  params: Promise<{ id: string }>;
+import { useState, useEffect, useCallback } from "react";
+import { useParams } from "next/navigation";
+import Link from "next/link";
+
+type ReservationStatus = "pending" | "confirmed" | "in_use" | "completed" | "cancelled" | "no_show";
+
+interface ReservationDetail {
+  id: string;
+  bikeName?: string;
+  vendorName?: string;
+  bike?: { name: string };
+  vendor?: { name: string };
+  start_datetime: string;
+  end_datetime: string;
+  status: ReservationStatus;
+  base_amount: number;
+  option_amount: number;
+  cdw_amount: number;
+  noc_amount: number;
+  total_amount: number;
+  created_at: string;
 }
 
 const statusLabels: Record<ReservationStatus, string> = {
@@ -23,9 +41,75 @@ const statusColors: Record<ReservationStatus, string> = {
   no_show: "bg-gray-300 text-gray-600",
 };
 
-export default async function ReservationDetailPage({ params }: Props) {
-  const { id } = await params;
-  const reservation = mockReservations.find((r) => r.id === id) || mockReservations[0];
+export default function ReservationDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const [reservation, setReservation] = useState<ReservationDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [cancelling, setCancelling] = useState(false);
+
+  const fetchReservation = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/reservations/${id}`);
+      if (!res.ok) throw new Error("API error");
+      const json = await res.json();
+      if (json.data) setReservation(json.data);
+    } catch (error) {
+      console.error("Failed to fetch reservation:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchReservation();
+  }, [fetchReservation]);
+
+  const handleCancel = async () => {
+    if (!confirm("本当にこの予約をキャンセルしますか？")) return;
+    setCancelling(true);
+    try {
+      const res = await fetch(`/api/reservations/${id}/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok && res.status >= 500) throw new Error("Server error");
+      const json = await res.json();
+      if (json.success) {
+        await fetchReservation();
+      } else {
+        alert(json.message || "キャンセルに失敗しました");
+      }
+    } catch {
+      alert("キャンセルに失敗しました");
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div>
+        <div className="h-[20px] w-[120px] bg-gray-100 animate-pulse" />
+        <div className="h-[36px] w-[200px] bg-gray-100 animate-pulse mt-[16px]" />
+        <div className="h-[200px] bg-gray-50 animate-pulse mt-[24px]" />
+      </div>
+    );
+  }
+
+  if (!reservation) {
+    return (
+      <div>
+        <Link href="/mypage/reservations" className="text-sm text-gray-500 hover:text-accent transition-colors">
+          &larr; 予約一覧に戻る
+        </Link>
+        <p className="mt-[24px] text-sm text-gray-400">予約が見つかりません</p>
+      </div>
+    );
+  }
+
+  const bikeName = reservation.bikeName || reservation.bike?.name || "";
+  const vendorName = reservation.vendorName || reservation.vendor?.name || "";
 
   const timeline = [
     { label: "予約作成", date: reservation.created_at, done: true },
@@ -48,13 +132,13 @@ export default async function ReservationDetailPage({ params }: Props) {
       <div className="mt-[24px] border border-gray-200 p-[24px]">
         <div className="flex flex-col sm:flex-row gap-[20px]">
           <div className="w-full sm:w-[200px] h-[130px] bg-gray-100 flex items-center justify-center text-sm text-gray-400 shrink-0">
-            {reservation.bikeName}
+            {bikeName}
           </div>
           <div className="flex-1">
             <div className="flex items-start justify-between">
               <div>
-                <h2 className="text-lg font-medium">{reservation.bikeName}</h2>
-                <p className="text-sm text-gray-500 mt-[4px]">{reservation.vendorName}</p>
+                <h2 className="text-lg font-medium">{bikeName}</h2>
+                <p className="text-sm text-gray-500 mt-[4px]">{vendorName}</p>
               </div>
               <span className={`px-[12px] py-[4px] text-xs ${statusColors[reservation.status]}`}>
                 {statusLabels[reservation.status]}
@@ -141,8 +225,12 @@ export default async function ReservationDetailPage({ params }: Props) {
 
       <div className="mt-[24px] flex gap-[12px]">
         {isCancellable && (
-          <button className="px-[24px] py-[12px] bg-status-cancelled text-white text-sm hover:opacity-90 transition-opacity">
-            キャンセルする
+          <button
+            onClick={handleCancel}
+            disabled={cancelling}
+            className="px-[24px] py-[12px] bg-status-cancelled text-white text-sm hover:opacity-90 transition-opacity disabled:opacity-50"
+          >
+            {cancelling ? "処理中..." : "キャンセルする"}
           </button>
         )}
         {isReviewable && (

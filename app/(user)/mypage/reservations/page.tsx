@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 
 const TABS = [
@@ -20,20 +20,42 @@ const STATUS_MAP: Record<string, { label: string; className: string }> = {
   cancelled: { label: "キャンセル", className: "bg-status-cancelled/10 text-status-cancelled" },
 };
 
-const RESERVATIONS = [
-  { id: "rsv-001", bike: "Honda PCX 160", vendor: "サンシャインモータース宮崎", startDate: "2025/02/15", endDate: "2025/02/16", amount: 6000, status: "confirmed" },
-  { id: "rsv-002", bike: "Yamaha MT-25", vendor: "青島バイクレンタル", startDate: "2025/03/01", endDate: "2025/03/02", amount: 11200, status: "pending" },
-  { id: "rsv-003", bike: "Kawasaki Ninja 400", vendor: "青島バイクレンタル", startDate: "2025/01/20", endDate: "2025/01/21", amount: 13200, status: "completed" },
-  { id: "rsv-004", bike: "Suzuki Address 125", vendor: "サンシャインモータース宮崎", startDate: "2025/01/10", endDate: "2025/01/10", amount: 3500, status: "cancelled" },
-  { id: "rsv-005", bike: "Honda CB400SF", vendor: "ライドパーク日南", startDate: "2025/02/10", endDate: "2025/02/11", amount: 18900, status: "in_use" },
-];
+interface ReservationItem {
+  id: string;
+  bikeName?: string;
+  vendorName?: string;
+  bike?: { name: string };
+  vendor?: { name: string };
+  start_datetime: string;
+  end_datetime: string;
+  total_amount: number;
+  status: string;
+}
 
 export default function ReservationsPage() {
   const [activeTab, setActiveTab] = useState("all");
+  const [reservations, setReservations] = useState<ReservationItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filtered = activeTab === "all"
-    ? RESERVATIONS
-    : RESERVATIONS.filter((r) => r.status === activeTab);
+  useEffect(() => {
+    const fetchReservations = async () => {
+      setLoading(true);
+      try {
+        const url = activeTab === "all"
+          ? "/api/reservations"
+          : `/api/reservations?status=${activeTab}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("API error");
+        const data = await res.json();
+        setReservations(data.data || []);
+      } catch (error) {
+        console.error("Failed to fetch reservations:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchReservations();
+  }, [activeTab]);
 
   return (
     <div>
@@ -57,7 +79,13 @@ export default function ReservationsPage() {
       </div>
 
       {/* Table */}
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="space-y-[8px]">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="h-[60px] bg-gray-50 animate-pulse" />
+          ))}
+        </div>
+      ) : reservations.length === 0 ? (
         <div className="text-center py-[60px] text-sm font-sans text-gray-400">
           該当する予約はありません
         </div>
@@ -74,8 +102,10 @@ export default function ReservationsPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((r) => {
-                const s = STATUS_MAP[r.status];
+              {reservations.map((r) => {
+                const s = STATUS_MAP[r.status] || { label: r.status, className: "bg-gray-100 text-gray-600" };
+                const bikeName = r.bikeName || r.bike?.name || "";
+                const vendorName = r.vendorName || r.vendor?.name || "";
                 return (
                   <tr key={r.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
                     <td className="px-[16px] py-[14px]">
@@ -84,14 +114,14 @@ export default function ReservationsPage() {
                       </Link>
                     </td>
                     <td className="px-[16px] py-[14px]">
-                      <p className="text-sm font-sans text-black">{r.bike}</p>
-                      <p className="text-xs font-sans text-gray-400">{r.vendor}</p>
+                      <p className="text-sm font-sans text-black">{bikeName}</p>
+                      <p className="text-xs font-sans text-gray-400">{vendorName}</p>
                     </td>
                     <td className="px-[16px] py-[14px] text-sm font-sans text-gray-600">
-                      {r.startDate} 〜 {r.endDate}
+                      {r.start_datetime} 〜 {r.end_datetime}
                     </td>
                     <td className="px-[16px] py-[14px] text-sm font-sans text-black text-right">
-                      ¥{r.amount.toLocaleString()}
+                      ¥{r.total_amount.toLocaleString()}
                     </td>
                     <td className="px-[16px] py-[14px] text-center">
                       <span className={`inline-block px-[10px] py-[3px] text-xs font-sans font-medium ${s.className}`}>

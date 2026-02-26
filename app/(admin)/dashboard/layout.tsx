@@ -1,10 +1,11 @@
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { ADMIN_NAV_ITEMS } from "@/lib/constants";
+import { AdminPinGate } from "@/components/admin/AdminPinGate";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <>
+    <AdminPinGate>
       <Header />
       <div className="min-h-screen pt-[70px] flex">
         <Sidebar items={[...ADMIN_NAV_ITEMS]} currentPath="/dashboard" title="管理画面" hasHeader />
@@ -12,6 +13,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {children}
         </main>
       </div>
-    </>
+    </AdminPinGate>
   );
 }

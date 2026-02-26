@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth/requireAuth";
+import { isSandboxMode, sandboxLog } from "@/lib/sandbox";
+import { mockReservations } from "@/lib/mock/reservations";
 import { refundPayment } from "@/lib/square/client";
+import { createNotification } from "@/lib/notifications";
 import type { Reservation, Payment, PaymentStatus } from "@/types/database";
 
 interface ReservationWithPayment extends Reservation {
@@ -34,6 +37,40 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Sandbox モード
+  if (isSandboxMode()) {
+    sandboxLog("POST /api/square/refund", `reservationId=${reservationId}, user=${user.id}`);
+
+    const reservation = mockReservations.find((r) => r.id === reservationId);
+    if (!reservation) {
+      return NextResponse.json(
+        { error: "Not found", message: "予約が見つかりません" },
+        { status: 404 }
+      );
+    }
+
+    if (reservation.user_id !== user.id && user.role !== "admin") {
+      return NextResponse.json(
+        { error: "Forbidden", message: "返金を要求する権限がありません" },
+        { status: 403 }
+      );
+    }
+
+    const refundAmount = amount || reservation.total_amount;
+
+    return NextResponse.json({
+      success: true,
+      message: "返金が完了しました",
+      data: {
+        refundId: `ref-sandbox-${Date.now()}`,
+        refundAmount,
+        totalRefunded: refundAmount,
+        paymentStatus: "refunded",
+      },
+    });
+  }
+
+  // Supabase モード
   // Get reservation with payment info
   const { data: reservationData, error: fetchError } = await supabase
     .from("reservations")
@@ -102,7 +139,7 @@ export async function POST(request: NextRequest) {
 
   // Execute refund via Square
   const refundResult = await refundPayment({
-    paymentId: payment.square_payment_id!, // Already checked for null above
+    paymentId: payment.square_payment_id!,
     amount: refundAmount,
     reason: reason || "Customer requested refund",
   });
@@ -138,6 +175,19 @@ export async function POST(request: NextRequest) {
 
   if (updateError) {
     console.error("Failed to update payment record:", updateError);
+  }
+
+  // ユーザーへ: アプリ内通知
+  try {
+    createNotification(supabase, {
+      userId: reservation.user_id,
+      type: "payment_received",
+      title: "返金が完了しました",
+      body: `¥${refundAmount.toLocaleString()} の返金処理が完了しました。`,
+      link: `/mypage/reservations/${reservationId}`,
+    }).catch((e) => console.error("Failed to create refund notification:", e));
+  } catch (e) {
+    console.error("Failed to send refund notification:", e);
   }
 
   return NextResponse.json({

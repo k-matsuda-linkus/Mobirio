@@ -4,6 +4,9 @@ import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
+import { SquarePaymentForm } from '@/components/payment/SquarePaymentForm';
+
+const isSandbox = process.env.NEXT_PUBLIC_SANDBOX_MODE === 'true';
 
 interface Reservation {
   id: string;
@@ -37,11 +40,6 @@ export default function PaymentPage({ params }: { params: Promise<{ reservationI
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Card form state (for demo - in production use Square Web Payments SDK)
-  const [cardNumber, setCardNumber] = useState('');
-  const [expiry, setExpiry] = useState('');
-  const [cvv, setCvv] = useState('');
-
   useEffect(() => {
     async function fetchReservation() {
       try {
@@ -53,8 +51,11 @@ export default function PaymentPage({ params }: { params: Promise<{ reservationI
           return;
         }
 
+        if (data.data.status === 'cancelled') {
+          setError('この予約はキャンセルされています');
+          return;
+        }
         if (data.data.status !== 'pending') {
-          // Already paid or cancelled
           router.push(`/book/${reservationId}/complete`);
           return;
         }
@@ -81,26 +82,18 @@ export default function PaymentPage({ params }: { params: Promise<{ reservationI
     });
   };
 
-  const handlePayment = async () => {
-    if (!cardNumber || !expiry || !cvv) {
-      setError('カード情報を入力してください');
-      return;
-    }
-
+  // Sandbox: テスト決済
+  const handleSandboxPayment = async () => {
     setProcessing(true);
     setError(null);
 
     try {
-      // In production, use Square Web Payments SDK to tokenize card
-      // For demo, we'll use a mock source ID
-      const sourceId = 'cnon:card-nonce-ok'; // Square sandbox test nonce
-
       const res = await fetch('/api/square/charge', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           reservationId,
-          sourceId,
+          sourceId: 'sandbox-nonce',
         }),
       });
 
@@ -111,7 +104,6 @@ export default function PaymentPage({ params }: { params: Promise<{ reservationI
         return;
       }
 
-      // Success - redirect to complete page
       router.push(`/book/${reservationId}/complete`);
     } catch (err) {
       setError('決済処理に失敗しました');
@@ -214,58 +206,39 @@ export default function PaymentPage({ params }: { params: Promise<{ reservationI
       <div className="border border-gray-100 p-6">
         <h2 className="font-serif text-lg mb-4">カード情報</h2>
 
-        <div className="space-y-4">
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">カード番号</label>
-            <input
-              type="text"
-              value={cardNumber}
-              onChange={(e) => setCardNumber(e.target.value)}
-              placeholder="4111 1111 1111 1111"
-              className="w-full border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:border-gray-400"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">有効期限</label>
-              <input
-                type="text"
-                value={expiry}
-                onChange={(e) => setExpiry(e.target.value)}
-                placeholder="MM/YY"
-                className="w-full border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:border-gray-400"
-              />
+        {isSandbox ? (
+          /* Sandbox: テスト決済ボタン */
+          <div className="space-y-4">
+            <div className="bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 text-sm">
+              テスト環境のため、カード情報の入力は不要です。
             </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">セキュリティコード</label>
-              <input
-                type="text"
-                value={cvv}
-                onChange={(e) => setCvv(e.target.value)}
-                placeholder="123"
-                className="w-full border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:border-gray-400"
-              />
-            </div>
+
+            <Button
+              className="w-full"
+              size="lg"
+              onClick={handleSandboxPayment}
+              disabled={processing}
+            >
+              {processing ? '処理中...' : `テスト決済 ¥${reservation.total_amount.toLocaleString()}`}
+            </Button>
+
+            <p className="text-xs text-gray-400 text-center">
+              sandbox モード — 実際の決済は発生しません
+            </p>
           </div>
-
-          <p className="text-xs text-gray-400">
-            テスト環境では任意の値を入力してください。
-          </p>
-
-          <Button
-            className="w-full"
-            size="lg"
-            onClick={handlePayment}
-            disabled={processing}
-          >
-            {processing ? '処理中...' : `¥${reservation.total_amount.toLocaleString()} を支払う`}
-          </Button>
-
-          <p className="text-xs text-gray-400 text-center">
-            お支払いは Square により安全に処理されます
-          </p>
-        </div>
+        ) : (
+          /* 本番: SquarePaymentForm */
+          <SquarePaymentForm
+            amount={reservation.total_amount}
+            reservationId={reservationId}
+            onSuccess={() => {
+              router.push(`/book/${reservationId}/complete`);
+            }}
+            onError={(errorMsg) => {
+              setError(errorMsg);
+            }}
+          />
+        )}
       </div>
 
       <div className="mt-8 text-center">

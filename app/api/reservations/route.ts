@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth/requireAuth";
+import { isSandboxMode, sandboxLog } from "@/lib/sandbox";
+import { mockReservations } from "@/lib/mock/reservations";
 import { checkAvailability } from "@/lib/booking/availability";
 import { validateBooking } from "@/lib/booking/validation";
 import { calculateRentalPrice, getCDWPriceForClass, getVehicleClassFromDisplacement } from "@/lib/booking/pricing";
@@ -17,6 +19,21 @@ export async function GET(request: NextRequest) {
   const status = searchParams.get("status");
   const limit = parseInt(searchParams.get("limit") || "50");
   const offset = parseInt(searchParams.get("offset") || "0");
+
+  // Sandbox モード
+  if (isSandboxMode()) {
+    sandboxLog("GET /api/reservations", `user=${user.id}, status=${status}`);
+
+    let filtered = mockReservations.filter((r) => r.user_id === user.id);
+
+    if (status) {
+      filtered = filtered.filter((r) => r.status === status);
+    }
+
+    const paged = filtered.slice(offset, offset + limit);
+
+    return NextResponse.json({ data: paged, message: "OK" });
+  }
 
   let query = supabase
     .from("reservations")
@@ -93,6 +110,26 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Sandbox モード
+  if (isSandboxMode()) {
+    sandboxLog("POST /api/reservations", `user=${user.id}, bike=${bikeId}`);
+
+    const dummyId = `rsv-sandbox-${Date.now()}`;
+    return NextResponse.json(
+      {
+        success: true,
+        message: "予約が作成されました",
+        data: {
+          id: dummyId,
+          status: "pending",
+          totalAmount: 10000,
+          created_at: new Date().toISOString(),
+        },
+      },
+      { status: 201 }
+    );
+  }
+
   // Check availability
   const availability = await checkAvailability(bikeId, startDatetime, endDatetime);
 
@@ -133,9 +170,9 @@ export async function POST(request: NextRequest) {
   const baseAmount = priceResult.baseAmount;
 
   let rentalDuration: RentalDuration = priceResult.rentalDuration;
-  // 32h超の場合、DBのRentalDuration型に合わせる
+  // 32h超の場合、最大のRentalDuration型に合わせる
   if (hours > 32) {
-    rentalDuration = "24h";
+    rentalDuration = "32h";
   }
 
   // Calculate option prices

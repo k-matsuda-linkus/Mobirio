@@ -1,5 +1,7 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
+import { isSandboxMode, sandboxLog } from "@/lib/sandbox";
+import { mockUsers } from "@/lib/mock/users";
 import type { User, Vendor } from "@/types/database";
 
 export interface AuthResult {
@@ -18,6 +20,40 @@ export interface AdminAuthResult extends AuthResult {
 export async function requireAuth(
   request: NextRequest
 ): Promise<AuthResult | NextResponse> {
+  // Sandbox モード: Supabase 認証をバイパスしモックユーザーを返す
+  if (isSandboxMode()) {
+    const sandboxUserId = request.headers.get("x-sandbox-user-id");
+    const mockUser = sandboxUserId
+      ? mockUsers.find((u) => u.id === sandboxUserId)
+      : mockUsers[0];
+
+    if (!mockUser) {
+      return NextResponse.json(
+        { error: "Unauthorized", message: "指定されたsandboxユーザーが見つかりません" },
+        { status: 401 }
+      );
+    }
+
+    sandboxLog("requireAuth", `user=${mockUser.id} (${mockUser.full_name})`);
+
+    const user: User = {
+      id: mockUser.id,
+      email: mockUser.email,
+      full_name: mockUser.full_name,
+      phone: mockUser.phone,
+      role: mockUser.role,
+      avatar_url: null,
+      is_banned: mockUser.is_banned,
+      banned_at: null,
+      banned_reason: null,
+      created_at: mockUser.created_at,
+      updated_at: mockUser.updated_at,
+    };
+
+    // sandbox では supabase を null として扱う（型互換のためキャスト）
+    return { user, supabase: null as unknown as AuthResult["supabase"] };
+  }
+
   const supabase = await createServerSupabaseClient();
 
   const {
@@ -73,6 +109,28 @@ export async function requireVendor(
       { error: "Forbidden", message: "店舗管理者権限が必要です" },
       { status: 403 }
     );
+  }
+
+  // Sandbox モード: モックベンダーを返す
+  if (isSandboxMode()) {
+    const { mockVendors } = await import("@/lib/mock/vendors");
+    const mockVendor = mockVendors.find((v) => v.id === "v-001");
+
+    if (!mockVendor) {
+      return NextResponse.json(
+        { error: "Forbidden", message: "店舗情報が見つかりません" },
+        { status: 403 }
+      );
+    }
+
+    sandboxLog("requireVendor", `vendor=${mockVendor.id} (${mockVendor.name})`);
+
+    const vendor = {
+      ...mockVendor,
+      user_id: user.id,
+    } as unknown as Vendor;
+
+    return { user, vendor, supabase };
   }
 
   const { data: vendorData, error: vendorError } = await supabase
