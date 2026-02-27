@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Download, Plus, ExternalLink, List, Columns3, CalendarDays } from "lucide-react";
+import { Download, ExternalLink, List, Columns3, CalendarDays } from "lucide-react";
 import { VendorPageHeader } from "@/components/vendor/VendorPageHeader";
 import { VendorSearchBar } from "@/components/vendor/VendorSearchBar";
 import { VendorDataTable, VendorColumn } from "@/components/vendor/VendorDataTable";
@@ -36,199 +36,6 @@ interface Reservation {
   status: string;
 }
 
-const MOCK_RESERVATIONS: Reservation[] = [
-  {
-    id: "res-001",
-    registeredAt: "2025/07/01 09:23",
-    reservationNo: "R-20250701-001",
-    memberNo: "M-10234",
-    customerName: "田中 太郎",
-    storeName: "宮崎橘通り店",
-    vehicleName: "PCX160",
-    registrationNo: "宮崎 あ 12-34",
-    chassisNo: "JF81-1001234",
-    departureAt: "2025/07/14 10:00",
-    returnAt: "2025/07/16 10:00",
-    baseAmount: 12000,
-    totalAmount: 15400,
-    paymentTypes: ["ec_credit", "onsite_cash"],
-    paymentSettlement: "paid",
-    hasGear: true,
-    status: "confirmed",
-  },
-  {
-    id: "res-002",
-    registeredAt: "2025/07/02 14:10",
-    reservationNo: "R-20250702-003",
-    memberNo: "M-10567",
-    customerName: "山田 花子",
-    storeName: "宮崎空港店",
-    vehicleName: "ADV150",
-    registrationNo: "宮崎 い 56-78",
-    chassisNo: "KF38-2005678",
-    departureAt: "2025/07/15 11:00",
-    returnAt: "2025/07/17 17:00",
-    baseAmount: 18000,
-    totalAmount: 21600,
-    paymentTypes: ["ec_credit"],
-    paymentSettlement: "paid",
-    hasGear: false,
-    status: "confirmed",
-  },
-  {
-    id: "res-003",
-    registeredAt: "2025/07/03 08:45",
-    reservationNo: "R-20250703-007",
-    memberNo: "M-10891",
-    customerName: "佐藤 一郎",
-    storeName: "宮崎橘通り店",
-    vehicleName: "CB250R",
-    registrationNo: "宮崎 う 90-12",
-    chassisNo: "MC52-3009012",
-    departureAt: "2025/07/16 09:00",
-    returnAt: "2025/07/18 09:00",
-    baseAmount: 22000,
-    totalAmount: 26400,
-    paymentTypes: ["onsite_cash"],
-    paymentSettlement: "unpaid",
-    hasGear: true,
-    status: "unconfirmed",
-  },
-  {
-    id: "res-004",
-    registeredAt: "2025/07/04 11:30",
-    reservationNo: "R-20250704-002",
-    memberNo: "M-10112",
-    customerName: "鈴木 次郎",
-    storeName: "宮崎空港店",
-    vehicleName: "Rebel 250",
-    registrationNo: "宮崎 え 34-56",
-    chassisNo: "MC49-4003456",
-    departureAt: "2025/07/17 10:00",
-    returnAt: "2025/07/19 10:00",
-    baseAmount: 20000,
-    totalAmount: 24000,
-    paymentTypes: ["ec_credit", "onsite_credit"],
-    paymentSettlement: "paid",
-    hasGear: false,
-    status: "in_use",
-  },
-  {
-    id: "res-005",
-    registeredAt: "2025/07/05 16:20",
-    reservationNo: "R-20250705-011",
-    memberNo: "M-10345",
-    customerName: "高橋 美咲",
-    storeName: "宮崎橘通り店",
-    vehicleName: "NMAX155",
-    registrationNo: "宮崎 お 78-90",
-    chassisNo: "SG50-5007890",
-    departureAt: "2025/07/18 13:00",
-    returnAt: "2025/07/20 13:00",
-    baseAmount: 14000,
-    totalAmount: 17800,
-    paymentTypes: ["ec_credit"],
-    paymentSettlement: "paid",
-    hasGear: true,
-    status: "confirmed",
-  },
-  {
-    id: "res-006",
-    registeredAt: "2025/07/06 10:05",
-    reservationNo: "R-20250706-004",
-    memberNo: "M-10678",
-    customerName: "伊藤 健太",
-    storeName: "宮崎空港店",
-    vehicleName: "Ninja 400",
-    registrationNo: "宮崎 か 12-34",
-    chassisNo: "EX400-6001234",
-    departureAt: "2025/07/19 09:00",
-    returnAt: "2025/07/21 17:00",
-    baseAmount: 28000,
-    totalAmount: 33600,
-    paymentTypes: ["onsite_cash", "onsite_credit"],
-    paymentSettlement: "paid",
-    hasGear: true,
-    status: "completed",
-  },
-  {
-    id: "res-007",
-    registeredAt: "2025/07/07 13:40",
-    reservationNo: "R-20250707-008",
-    memberNo: "M-10901",
-    customerName: "渡辺 あゆみ",
-    storeName: "宮崎橘通り店",
-    vehicleName: "PCX160",
-    registrationNo: "宮崎 あ 12-34",
-    chassisNo: "JF81-1001234",
-    departureAt: "2025/07/20 10:00",
-    returnAt: "2025/07/22 10:00",
-    baseAmount: 12000,
-    totalAmount: 15400,
-    paymentTypes: ["ec_credit"],
-    paymentSettlement: "refunded",
-    hasGear: false,
-    status: "cancelled",
-  },
-  {
-    id: "res-008",
-    registeredAt: "2025/07/08 09:15",
-    reservationNo: "R-20250708-006",
-    memberNo: "M-10223",
-    customerName: "中村 大輔",
-    storeName: "宮崎空港店",
-    vehicleName: "CB250R",
-    registrationNo: "宮崎 き 56-78",
-    chassisNo: "MC52-7005678",
-    departureAt: "2025/07/21 11:00",
-    returnAt: "2025/07/23 11:00",
-    baseAmount: 22000,
-    totalAmount: 26400,
-    paymentTypes: ["ec_credit", "onsite_cash"],
-    paymentSettlement: "paid",
-    hasGear: true,
-    status: "confirmed",
-  },
-  {
-    id: "res-009",
-    registeredAt: "2025/07/09 15:55",
-    reservationNo: "R-20250709-009",
-    memberNo: "M-10445",
-    customerName: "小林 さくら",
-    storeName: "宮崎橘通り店",
-    vehicleName: "ADV150",
-    registrationNo: "宮崎 く 90-12",
-    chassisNo: "KF38-8009012",
-    departureAt: "2025/07/22 14:00",
-    returnAt: "2025/07/24 14:00",
-    baseAmount: 18000,
-    totalAmount: 21600,
-    paymentTypes: [],
-    paymentSettlement: "unpaid",
-    hasGear: false,
-    status: "no_show",
-  },
-  {
-    id: "res-010",
-    registeredAt: "2025/07/10 12:00",
-    reservationNo: "R-20250710-010",
-    memberNo: "M-10556",
-    customerName: "加藤 翔太",
-    storeName: "宮崎空港店",
-    vehicleName: "Rebel 250",
-    registrationNo: "宮崎 け 34-56",
-    chassisNo: "MC49-9003456",
-    departureAt: "2025/07/23 10:00",
-    returnAt: "2025/07/25 10:00",
-    baseAmount: 20000,
-    totalAmount: 24000,
-    paymentTypes: ["ec_credit"],
-    paymentSettlement: "unpaid",
-    hasGear: true,
-    status: "unconfirmed",
-  },
-];
-
 export default function VendorReservationsPage() {
   const router = useRouter();
   const [viewMode, setViewMode] = useState<"table" | "kanban">("kanban");
@@ -238,6 +45,45 @@ export default function VendorReservationsPage() {
   const [searchStatus, setSearchStatus] = useState("");
   const [departureDateFrom, setDepartureDateFrom] = useState("");
   const [departureDateTo, setDepartureDateTo] = useState("");
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (searchStatus) params.set("status", searchStatus);
+    if (departureDateFrom) params.set("startDate", departureDateFrom);
+    if (departureDateTo) params.set("endDate", departureDateTo);
+
+    fetch(`/api/vendor/reservations?${params}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((json) => {
+        if (json?.data) {
+          const rsvs = Array.isArray(json.data) ? json.data : [];
+          const mapped: Reservation[] = rsvs.map((r: any) => ({
+            id: r.id,
+            registeredAt: r.created_at ? new Date(r.created_at).toLocaleString("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).replace(/\//g, "/") : "",
+            reservationNo: r.reservation_no || r.id,
+            memberNo: r.member_no || r.user_id?.slice(0, 8) || "",
+            customerName: r.user_name || r.customerName || "顧客",
+            storeName: r.store_name || r.storeName || "",
+            vehicleName: r.bike_name || r.bikeName || "",
+            registrationNo: r.registration_number || "",
+            chassisNo: r.chassis_number || "",
+            departureAt: r.start_datetime ? new Date(r.start_datetime).toLocaleString("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).replace(/\//g, "/") : "",
+            returnAt: r.end_datetime ? new Date(r.end_datetime).toLocaleString("ja-JP", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).replace(/\//g, "/") : "",
+            baseAmount: r.base_amount || r.total_amount || 0,
+            totalAmount: r.total_amount || 0,
+            paymentTypes: r.payment_types || r.paymentTypes || [],
+            paymentSettlement: r.payment_settlement || r.paymentSettlement || "unpaid",
+            hasGear: r.has_gear || r.hasGear || false,
+            status: r.status || "unconfirmed",
+          }));
+          setReservations(mapped);
+        }
+      })
+      .catch((err) => console.error("reservations fetch error:", err))
+      .finally(() => setLoading(false));
+  }, [searchStatus, departureDateFrom, departureDateTo]);
 
   const VIEW_OPTIONS = [
     { key: "table", label: "テーブル", icon: List },
@@ -274,7 +120,15 @@ export default function VendorReservationsPage() {
     }
   };
 
-  const kanbanItems: KanbanItem[] = MOCK_RESERVATIONS.map((r) => ({
+  // クライアントサイドのテキストフィルタリング
+  const filteredReservations = reservations.filter((r) => {
+    if (searchNo && !r.reservationNo.toLowerCase().includes(searchNo.toLowerCase())) return false;
+    if (searchName && !r.customerName.includes(searchName)) return false;
+    if (searchStore && !r.storeName.includes(searchStore)) return false;
+    return true;
+  });
+
+  const kanbanItems: KanbanItem[] = filteredReservations.map((r) => ({
     id: r.id,
     reservationNo: r.reservationNo,
     customerName: r.customerName,
@@ -399,6 +253,8 @@ export default function VendorReservationsPage() {
   const inputClass =
     "border border-gray-300 px-[10px] py-[6px] text-sm w-full focus:outline-none focus:border-accent";
 
+  if (loading) return <div className="p-[24px] text-sm text-gray-500">読み込み中...</div>;
+
   return (
     <div>
       <VendorPageHeader
@@ -413,13 +269,7 @@ export default function VendorReservationsPage() {
               <Download className="w-[14px] h-[14px]" />
               CSV出力
             </Link>
-            <Link
-              href="/vendor/reservations/new"
-              className="flex items-center gap-[6px] bg-accent text-white px-[14px] py-[8px] text-sm hover:bg-accent-dark"
-            >
-              <Plus className="w-[14px] h-[14px]" />
-              新規
-            </Link>
+{/* 予約新規作成はユーザー側フローのため非表示 */}
           </>
         }
       />
@@ -519,7 +369,7 @@ export default function VendorReservationsPage() {
         onRemove={handleRemoveFilter}
       />
 
-      {MOCK_RESERVATIONS.length === 0 ? (
+      {filteredReservations.length === 0 ? (
         <EmptyState
           icon={CalendarDays}
           title="予約がありません"
@@ -528,7 +378,7 @@ export default function VendorReservationsPage() {
       ) : viewMode === "table" ? (
         <VendorDataTable<Reservation>
           columns={columns}
-          data={MOCK_RESERVATIONS}
+          data={filteredReservations}
           pageSize={10}
           getId={(item) => item.id}
           onRowClick={(item) => router.push(`/vendor/reservations/${item.id}`)}

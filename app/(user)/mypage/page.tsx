@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { CalendarDays, Bike, Star, Bell } from "lucide-react";
+import { CalendarDays, Bike, Bell } from "lucide-react";
 
 interface ReservationItem {
   id: string;
@@ -50,7 +50,6 @@ export default function MypageDashboard() {
   const [stats, setStats] = useState([
     { label: "予約中", value: "-", icon: CalendarDays, color: "text-accent" },
     { label: "利用回数", value: "-", icon: Bike, color: "text-black" },
-    { label: "レビュー", value: "-", icon: Star, color: "text-yellow-500" },
     { label: "未読通知", value: "-", icon: Bell, color: "text-red-500" },
   ]);
   const [upcoming, setUpcoming] = useState<ReservationItem[]>([]);
@@ -85,7 +84,6 @@ export default function MypageDashboard() {
         setStats([
           { label: "予約中", value: String(active.length), icon: CalendarDays, color: "text-accent" },
           { label: "利用回数", value: String(completedCount), icon: Bike, color: "text-black" },
-          { label: "レビュー", value: "-", icon: Star, color: "text-yellow-500" },
           { label: "未読通知", value: String(unreadCount), icon: Bell, color: "text-red-500" },
         ]);
 
@@ -106,8 +104,8 @@ export default function MypageDashboard() {
           <div className="h-[32px] w-[200px] bg-gray-100 animate-pulse mb-[8px]" />
           <div className="h-[20px] w-[160px] bg-gray-100 animate-pulse" />
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-[16px] mb-[40px]">
-          {[...Array(4)].map((_, i) => (
+        <div className="grid grid-cols-3 gap-[16px] mb-[40px]">
+          {[...Array(3)].map((_, i) => (
             <div key={i} className="bg-white border border-gray-100 p-[20px]">
               <div className="h-[20px] w-[20px] bg-gray-100 animate-pulse mb-[12px]" />
               <div className="h-[32px] w-[40px] bg-gray-100 animate-pulse" />
@@ -128,7 +126,7 @@ export default function MypageDashboard() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-[16px] mb-[40px]">
+      <div className="grid grid-cols-3 gap-[16px] mb-[40px]">
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (

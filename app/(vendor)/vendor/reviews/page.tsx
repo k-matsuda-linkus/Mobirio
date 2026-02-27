@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Download, Star } from "lucide-react";
 import { VendorPageHeader } from "@/components/vendor/VendorPageHeader";
@@ -19,53 +19,6 @@ interface ReviewRow {
   publishStatus: string;
 }
 
-const mockReviews: ReviewRow[] = [
-  {
-    id: "1",
-    storeName: "宮崎本店",
-    postedAt: "2026-02-10 14:30",
-    reviewContent: "CB400SFをレンタルしました。メンテナンスが行き届いていて、とても快適なツーリングができました。スタッフの方も親切に対応してくださり、次回もぜひ利用したいと思います。",
-    repliedAt: "2026-02-11 09:00",
-    replyContent: "この度はご利用いただきありがとうございます。快適にご利用いただけたとのこと、大変嬉しく思います。またのお越しをお待ちしております。",
-    publishStatus: "published",
-  },
-  {
-    id: "2",
-    storeName: "宮崎本店",
-    postedAt: "2026-02-08 10:15",
-    reviewContent: "初めてのバイクレンタルでしたが、丁寧な説明で安心できました。PCX160は燃費も良く、街乗りには最高です。",
-    repliedAt: "",
-    replyContent: "",
-    publishStatus: "published",
-  },
-  {
-    id: "3",
-    storeName: "鹿児島支店",
-    postedAt: "2026-02-05 16:45",
-    reviewContent: "MT-09のパワフルな走りを堪能しました。桜島を一周するルートがおすすめです。ただ、返却時の説明がやや分かりにくかったです。",
-    repliedAt: "2026-02-06 11:30",
-    replyContent: "ご利用ありがとうございます。返却時の説明について、ご不便をおかけし申し訳ございません。改善に努めてまいります。",
-    publishStatus: "published",
-  },
-  {
-    id: "4",
-    storeName: "鹿児島支店",
-    postedAt: "2026-01-28 09:00",
-    reviewContent: "Ninja400でツーリングしました。バイクの状態は良好でしたが、ヘルメットのサイズが少し合わなかったので星マイナス1です。",
-    repliedAt: "",
-    replyContent: "",
-    publishStatus: "unpublished",
-  },
-  {
-    id: "5",
-    storeName: "宮崎本店",
-    postedAt: "2026-01-20 13:20",
-    reviewContent: "GB350Sでのんびりツーリングを楽しめました。レトロなデザインが気に入って、購入も検討中です。料金もリーズナブルで大満足です。",
-    repliedAt: "2026-01-21 10:00",
-    replyContent: "ご利用ありがとうございます！GB350Sは当店でも人気の車種です。ご購入をご検討とのこと、嬉しい限りです。",
-    publishStatus: "published",
-  },
-];
 
 const columns: VendorColumn<ReviewRow>[] = [
   {
@@ -136,6 +89,33 @@ const columns: VendorColumn<ReviewRow>[] = [
 export default function VendorReviewsListPage() {
   const [searchStore, setSearchStore] = useState("");
   const [searchStatus, setSearchStatus] = useState("");
+  const [reviews, setReviews] = useState<ReviewRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/vendor/shop-reviews").then((res) => (res.ok ? res.json() : Promise.reject("API error"))),
+      fetch("/api/vendor/shop").then((res) => (res.ok ? res.json() : null)),
+    ])
+      .then(([reviewsJson, shopJson]) => {
+        const vendorName = shopJson?.data?.name || "";
+        setReviews(
+          (reviewsJson.data || []).map((r: Record<string, unknown>) => ({
+            id: r.id,
+            storeName: vendorName,
+            postedAt: typeof r.posted_at === "string" ? r.posted_at.slice(0, 16).replace("T", " ") : "",
+            reviewContent: (r.content as string) ?? "",
+            repliedAt: typeof r.reply_at === "string" ? r.reply_at.slice(0, 16).replace("T", " ") : "",
+            replyContent: (r.reply as string) ?? "",
+            publishStatus: r.is_published ? "published" : "unpublished",
+          }))
+        );
+      })
+      .catch((err) => console.error(err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="p-[24px]">読み込み中...</div>;
 
   return (
     <div>
@@ -179,14 +159,14 @@ export default function VendorReviewsListPage() {
         </div>
       </VendorSearchBar>
 
-      {mockReviews.length === 0 ? (
+      {reviews.length === 0 ? (
         <EmptyState
           icon={Star}
           title="クチコミがありません"
           description="お客様からのクチコミが投稿されると、ここに表示されます。"
         />
       ) : (
-        <VendorDataTable columns={columns} data={mockReviews} pageSize={20} />
+        <VendorDataTable columns={columns} data={reviews} pageSize={20} />
       )}
     </div>
   );

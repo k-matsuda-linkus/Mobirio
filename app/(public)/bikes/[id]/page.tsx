@@ -1,8 +1,15 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
+import Image from 'next/image';
 import { mockBikes } from '@/lib/mock/bikes';
 import { mockVendors } from '@/lib/mock/vendors';
 import { RENTAL_DURATIONS } from '@/lib/constants';
 import { MapPin, Phone } from 'lucide-react';
+import { BikeGallery } from './BikeGallery';
+
+export const revalidate = 3600;
+
+const BASE_URL = 'https://mobirio.jp';
 
 const ENGINE_LABELS: Record<string, string> = {
   electric: '電動',
@@ -34,10 +41,34 @@ const LICENSE_LABELS: Record<string, string> = {
   electric_kickboard: '特定小型原付',
 };
 
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const bike = mockBikes.find((b) => b.id === id);
-  return { title: bike?.name || 'バイク詳細' };
+  if (!bike) return { title: 'バイク詳細' };
+
+  const vendor = mockVendors.find((v) => v.id === bike.vendor_id);
+  const title = `${bike.name} | ${vendor?.name || 'Mobirio'}`;
+  const description = bike.description
+    || `${bike.manufacturer} ${bike.name}（${bike.displacement ? `${bike.displacement}cc` : '電動'}）のレンタル。1日 ¥${(bike.daily_rate_1day || 0).toLocaleString()} から。`;
+  const imageUrl = bike.image_urls?.[0] || undefined;
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      url: `${BASE_URL}/bikes/${id}`,
+      type: 'website',
+      ...(imageUrl && { images: [{ url: imageUrl, width: 1200, height: 630, alt: bike.name }] }),
+    },
+    twitter: {
+      card: imageUrl ? 'summary_large_image' : 'summary',
+      title,
+      description,
+      ...(imageUrl && { images: [imageUrl] }),
+    },
+  };
 }
 
 export default async function BikeDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -45,14 +76,48 @@ export default async function BikeDetailPage({ params }: { params: Promise<{ id:
   const bike = mockBikes.find((b) => b.id === id) || mockBikes[0];
   const vendor = mockVendors.find((v) => v.id === bike.vendor_id);
 
+  /* --- JSON-LD: Product + BreadcrumbList --- */
+  const productJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: bike.name,
+    description: bike.description || `${bike.manufacturer} ${bike.name} レンタル`,
+    brand: { '@type': 'Brand', name: bike.manufacturer },
+    ...(bike.image_urls?.length && { image: bike.image_urls }),
+    offers: {
+      '@type': 'Offer',
+      priceCurrency: 'JPY',
+      price: bike.daily_rate_1day || 0,
+      availability: 'https://schema.org/InStock',
+      url: `${BASE_URL}/bikes/${id}`,
+    },
+  };
+
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'TOP', item: BASE_URL },
+      { '@type': 'ListItem', position: 2, name: 'バイク一覧', item: `${BASE_URL}/bikes` },
+      { '@type': 'ListItem', position: 3, name: bike.name, item: `${BASE_URL}/bikes/${id}` },
+    ],
+  };
+
   return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
     <div className="max-w-[1200px] mx-auto px-[30px] md:px-[50px] py-[50px] md:py-[100px]">
       <div className="grid md:grid-cols-2 gap-[50px]">
         {/* Gallery */}
         <div>
-          <div className="aspect-[4/3] bg-gray-100 flex items-center justify-center text-gray-400">
-            No Image
-          </div>
+          {bike.image_urls && bike.image_urls.length > 0 ? (
+            <BikeGallery images={bike.image_urls} name={bike.name} />
+          ) : (
+            <div className="aspect-[4/3] bg-gray-100 flex items-center justify-center text-gray-400">
+              No Image
+            </div>
+          )}
         </div>
 
         {/* Info */}
@@ -154,7 +219,19 @@ export default async function BikeDetailPage({ params }: { params: Promise<{ id:
         <div className="grid md:grid-cols-3 gap-[20px]">
           {mockBikes.filter((b) => b.id !== id).slice(0, 3).map((b) => (
             <Link key={b.id} href={`/bikes/${b.id}`} className="border border-gray-100 hover:border-gray-300 transition-colors">
-              <div className="aspect-[4/3] bg-gray-100 flex items-center justify-center text-gray-400 text-xs">No Image</div>
+              <div className="aspect-[4/3] bg-gray-100 relative overflow-hidden">
+                {b.image_urls && b.image_urls.length > 0 ? (
+                  <Image
+                    src={b.image_urls[0]}
+                    alt={b.name}
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, 33vw"
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-xs">No Image</div>
+                )}
+              </div>
               <div className="p-[20px]">
                 <p className="text-xs text-gray-400">{b.manufacturer}</p>
                 <p className="font-serif text-lg mt-[2px]">{b.name}</p>
@@ -165,5 +242,6 @@ export default async function BikeDetailPage({ params }: { params: Promise<{ id:
         </div>
       </div>
     </div>
+    </>
   );
 }

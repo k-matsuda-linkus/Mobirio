@@ -1,15 +1,70 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import VendorStatsCard from "@/components/vendor/VendorStatsCard";
 import { ReportChart } from "@/components/admin/ReportChart";
 
-const bikeUsage = [
-  { name: "CB400SF", reservations: 12, utilization: 78, revenue: 180000 },
-  { name: "PCX 125", reservations: 15, utilization: 85, revenue: 120000 },
-  { name: "Ninja400", reservations: 8, utilization: 62, revenue: 144000 },
-  { name: "レブル250", reservations: 10, utilization: 72, revenue: 100000 },
-  { name: "MT-07", reservations: 6, utilization: 45, revenue: 90000 },
-];
+interface BikeUsageItem {
+  bike_id: string;
+  name: string;
+  reservations: number;
+  utilization: number;
+  revenue: number;
+}
+
+interface BikesReportAPI {
+  bikeUsage: BikeUsageItem[];
+  utilizationRate: number;
+  totalBikes: number;
+  activeBikes: number;
+  mostPopularBike: { id: string; name: string; rentals: number } | null;
+}
+
+interface BikesReport {
+  bikes: BikeUsageItem[];
+  avgUtilization: number;
+  totalBikes: number;
+  activeBikes: number;
+  topBike: { name: string; utilization: number } | null;
+}
 
 export default function BikeUsageReportPage() {
+  const [data, setData] = useState<BikesReport | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/vendor/reports/bikes")
+      .then((r) => r.ok ? r.json() : null)
+      .then((json) => {
+        if (json?.data) {
+          const api = json.data as BikesReportAPI;
+          // APIレスポンスをフロントエンドの期待する構造にマッピング
+          const topBikeUsage = api.mostPopularBike
+            ? api.bikeUsage?.find((b) => b.bike_id === api.mostPopularBike!.id)
+            : null;
+          setData({
+            bikes: api.bikeUsage || [],
+            avgUtilization: Math.round((api.utilizationRate || 0) * 100 * 10) / 10,
+            totalBikes: api.totalBikes,
+            activeBikes: api.activeBikes,
+            topBike: api.mostPopularBike
+              ? { name: api.mostPopularBike.name, utilization: topBikeUsage?.utilization ?? 0 }
+              : null,
+          });
+        }
+      })
+      .catch((err) => console.error("bikes report error:", err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const bikeUsage = data?.bikes || [];
+  const avgUtil = data?.avgUtilization ?? 0;
+  const totalBikes = data?.totalBikes ?? 0;
+  const activeBikes = data?.activeBikes ?? 0;
+  const topBike = data?.topBike;
+
+  if (loading) return <div className="p-[24px] text-sm text-gray-500">読み込み中...</div>;
+
   return (
     <div>
       <div className="mb-[24px]">
@@ -17,9 +72,9 @@ export default function BikeUsageReportPage() {
         <h1 className="font-serif text-2xl font-light">車両稼働レポート</h1>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-[16px] mb-[24px]">
-        <VendorStatsCard title="平均稼働率" value="68.4%" trend={{ value: 5.2, positive: true }} />
-        <VendorStatsCard title="稼働台数" value="5 / 5台" />
-        <VendorStatsCard title="最高稼働車両" value="PCX 125" subtitle="稼働率 85%" />
+        <VendorStatsCard title="平均稼働率" value={`${avgUtil}%`} />
+        <VendorStatsCard title="稼働台数" value={`${activeBikes} / ${totalBikes}台`} />
+        <VendorStatsCard title="最高稼働車両" value={topBike?.name || "-"} subtitle={topBike ? `稼働率 ${topBike.utilization}%` : undefined} />
       </div>
       <div className="mb-[24px]">
         <ReportChart
@@ -41,7 +96,7 @@ export default function BikeUsageReportPage() {
           </thead>
           <tbody>
             {bikeUsage.map((b) => (
-              <tr key={b.name} className="border-b border-gray-50">
+              <tr key={b.bike_id} className="border-b border-gray-50">
                 <td className="px-[16px] py-[12px] text-gray-700">{b.name}</td>
                 <td className="px-[16px] py-[12px] text-right font-mono text-gray-600">{b.reservations}</td>
                 <td className="px-[16px] py-[12px] text-right">

@@ -1,18 +1,44 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MessageSquare } from "lucide-react";
 
-const mockMessages = [
-  { id: "m-001", from: "田中太郎", subject: "PCX 125の予約について", date: "2025-02-01", read: true, preview: "予約日を変更したいのですが..." },
-  { id: "m-002", from: "佐藤花子", subject: "ヘルメットのサイズ", date: "2025-01-30", read: true, preview: "Mサイズのヘルメットはありますか？" },
-  { id: "m-003", from: "鈴木一郎", subject: "Ninja400の返却時間", date: "2025-01-28", read: false, preview: "返却時間を1時間遅らせたいです。" },
-  { id: "m-004", from: "高橋美咲", subject: "レビューのお礼", date: "2025-01-25", read: true, preview: "素敵な体験をありがとうございました！" },
-  { id: "m-005", from: "渡辺健太", subject: "保険オプションについて", date: "2025-01-22", read: false, preview: "CDWの補償内容を教えてください。" },
-];
+interface Message {
+  id: string;
+  from: string;
+  subject: string;
+  date: string;
+  read: boolean;
+  preview: string;
+}
 
 export default function VendorMessagesPage() {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<string | null>(null);
-  const unread = mockMessages.filter((m) => !m.read).length;
+  const [replyText, setReplyText] = useState("");
+
+  useEffect(() => {
+    fetch("/api/vendor/inquiries")
+      .then((res) => (res.ok ? res.json() : Promise.reject("API error")))
+      .then((json) => {
+        setMessages(
+          (json.data || []).map((i: Record<string, unknown>) => ({
+            id: i.id as string,
+            from: (i.customer_name as string) || "ゲスト",
+            subject: ((i.content as string) || "").slice(0, 30) || "お問い合わせ",
+            date: typeof i.created_at === "string" ? (i.created_at as string).slice(0, 10) : "",
+            read: (i.status as string) !== "pending",
+            preview: (i.content as string) || "",
+          }))
+        );
+      })
+      .catch((err) => console.error(err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const unread = messages.filter((m) => !m.read).length;
+
+  if (loading) return <div className="p-[24px]">読み込み中...</div>;
 
   return (
     <div>
@@ -24,10 +50,10 @@ export default function VendorMessagesPage() {
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-0 border border-gray-100 bg-white">
         <div className="lg:col-span-1 border-r border-gray-100">
-          {mockMessages.map((m) => (
+          {messages.map((m) => (
             <button
               key={m.id}
-              onClick={() => setSelected(m.id)}
+              onClick={() => { setSelected(m.id); setReplyText(""); }}
               className={"w-full text-left px-[16px] py-[14px] border-b border-gray-50 hover:bg-gray-50 transition-colors " + (selected === m.id ? "bg-gray-50" : "") + (!m.read ? " font-medium" : "")}
             >
               <div className="flex items-center justify-between mb-[2px]">
@@ -42,7 +68,7 @@ export default function VendorMessagesPage() {
         <div className="lg:col-span-2 p-[24px]">
           {selected ? (
             (() => {
-              const msg = mockMessages.find((m) => m.id === selected);
+              const msg = messages.find((m) => m.id === selected);
               if (!msg) return null;
               return (
                 <div>
@@ -51,10 +77,25 @@ export default function VendorMessagesPage() {
                   <p className="text-sm text-gray-600 leading-relaxed">{msg.preview}</p>
                   <div className="mt-[24px]">
                     <textarea
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
                       placeholder="返信を入力..."
                       className="w-full border border-gray-200 px-[12px] py-[10px] text-sm min-h-[100px] focus:border-accent focus:outline-none"
                     />
-                    <button className="mt-[8px] bg-black px-[24px] py-[10px] text-sm text-white hover:bg-gray-800">送信</button>
+                    <button
+                      onClick={() => {
+                        if (!replyText.trim()) return;
+                        fetch(`/api/vendor/inquiries/${msg.id}`, {
+                          method: "PUT",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ reply: replyText, status: "responding" }),
+                        })
+                          .then((res) => (res.ok ? res.json() : Promise.reject("API error")))
+                          .then(() => { alert("送信しました"); setReplyText(""); })
+                          .catch(() => alert("送信に失敗しました"));
+                      }}
+                      className="mt-[8px] bg-black px-[24px] py-[10px] text-sm text-white hover:bg-gray-800"
+                    >送信</button>
                   </div>
                 </div>
               );

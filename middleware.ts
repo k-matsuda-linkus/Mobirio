@@ -1,9 +1,45 @@
-// import { createServerClient } from '@supabase/ssr'; // TODO: 本番リリース時に復活
+import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 // CSRF チェック除外パス
 const CSRF_EXEMPT_PREFIXES = ['/api/cron/', '/api/auth/callback'];
+
+// 認証不要の公開パス
+const PUBLIC_PATHS = [
+  '/',
+  '/login',
+  '/register',
+  '/vendor-register',
+  '/forgot-password',
+  '/set-password',
+  '/auth/callback',
+  '/bikes',
+  '/vendors',
+  '/about',
+  '/contact',
+  '/terms',
+  '/privacy',
+  '/faq',
+  '/help',
+];
+
+// 認証必須の保護パスプレフィックス
+const PROTECTED_PREFIXES = ['/mypage', '/vendor', '/dashboard'];
+
+function isPublicPath(pathname: string): boolean {
+  // 完全一致
+  if (PUBLIC_PATHS.includes(pathname)) return true;
+  // プレフィックス一致（/bikes/xxx, /vendors/xxx 等）
+  if (pathname.startsWith('/bikes/') || pathname.startsWith('/vendors/')) return true;
+  return false;
+}
+
+function isProtectedPath(pathname: string): boolean {
+  return PROTECTED_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(prefix + '/')
+  );
+}
 
 function isAllowedOrigin(origin: string, requestUrl: string): boolean {
   const { hostname: requestHost } = new URL(requestUrl);
@@ -16,7 +52,7 @@ function isAllowedOrigin(origin: string, requestUrl: string): boolean {
 }
 
 export async function middleware(req: NextRequest) {
-  const response = NextResponse.next({
+  let response = NextResponse.next({
     request: {
       headers: req.headers,
     },
@@ -38,10 +74,63 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  // --- セッションチェック ---
-  // 開発初期: 認証リダイレクトを無効化（マイページ・ベンダー・管理画面にログインなしでアクセス可能）
-  // 管理画面は AdminPinGate コンポーネントで4桁PINロック
-  // TODO: 本番リリース時に認証チェックを再有効化
+  // --- APIルートはスルー（各API内で requireAuth 等で個別チェック済み）---
+  if (pathname.startsWith('/api/')) {
+    return response;
+  }
+
+  // --- Sandbox モード: 認証チェックをスキップ ---
+  const isSandbox =
+    process.env.NEXT_PUBLIC_SANDBOX_MODE === 'true' ||
+    !process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (isSandbox) {
+    return response;
+  }
+
+  // --- Supabase セッション更新 ---
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return response;
+  }
+
+  const supabase = createServerClient(
+    supabaseUrl,
+    supabaseAnonKey,
+    {
+      cookies: {
+        getAll() {
+          return req.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) =>
+            req.cookies.set(name, value)
+          );
+          response = NextResponse.next({
+            request: {
+              headers: req.headers,
+            },
+          });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          );
+        },
+      },
+    }
+  );
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // --- 保護パスへの未認証アクセスをリダイレクト ---
+  if (!user && isProtectedPath(pathname)) {
+    const redirectUrl = req.nextUrl.clone();
+    redirectUrl.pathname = '/login';
+    redirectUrl.searchParams.set('redirect', pathname);
+    return NextResponse.redirect(redirectUrl);
+  }
+
   return response;
 }
 

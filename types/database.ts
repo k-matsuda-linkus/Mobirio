@@ -1,4 +1,4 @@
-// Mobirio — Supabase Database Type Definitions (17 tables)
+// Mobirio — Supabase Database Type Definitions (28 tables)
 
 export type Json =
   | string
@@ -1294,6 +1294,99 @@ export interface Database {
         Relationships: [];
       };
 
+      // 26. admins
+      admins: {
+        Row: {
+          id: string;
+          email: string;
+          role: "super_admin" | "admin" | "moderator";
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          email: string;
+          role?: "super_admin" | "admin" | "moderator";
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          email?: string;
+          role?: "super_admin" | "admin" | "moderator";
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+
+      // 28. banned_users
+      banned_users: {
+        Row: {
+          id: string;
+          email: string;
+          reason: string | null;
+          banned_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          email: string;
+          reason?: string | null;
+          banned_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          email?: string;
+          reason?: string | null;
+          banned_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+
+      // 27. contact_inquiries
+      contact_inquiries: {
+        Row: {
+          id: string;
+          name: string;
+          email: string;
+          phone: string | null;
+          subject: string;
+          content: string;
+          reply: string | null;
+          status: "new" | "in_progress" | "resolved" | "closed";
+          created_at: string;
+          replied_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          email: string;
+          phone?: string | null;
+          subject: string;
+          content: string;
+          reply?: string | null;
+          status?: "new" | "in_progress" | "resolved" | "closed";
+          created_at?: string;
+          replied_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          email?: string;
+          phone?: string | null;
+          subject?: string;
+          content?: string;
+          reply?: string | null;
+          status?: "new" | "in_progress" | "resolved" | "closed";
+          created_at?: string;
+          replied_at?: string | null;
+        };
+        Relationships: [];
+      };
+
       // Also keep legacy alias for backward compat
       user_profiles: {
         Row: {
@@ -1371,3 +1464,8 @@ export type PageView = Tables<"page_views">;
 export type SystemSetting = Tables<"system_settings">;
 export type Coupon = Tables<"coupons">;
 export type CouponUsage = Tables<"coupon_usages">;
+export type Admin = Tables<"admins">;
+export type AdminRole = Admin["role"];
+export type ContactInquiry = Tables<"contact_inquiries">;
+export type ContactInquiryStatus = ContactInquiry["status"];
+export type BannedUser = Tables<"banned_users">;

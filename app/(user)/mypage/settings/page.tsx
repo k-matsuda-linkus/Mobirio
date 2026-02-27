@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { FileUploader } from "@/components/ui/FileUploader";
 
 export default function SettingsPage() {
   const router = useRouter();
-  const [profile, setProfile] = useState({ name: "", email: "", phone: "" });
+  const [profile, setProfile] = useState({ name: "", email: "", phone: "", id: "" });
+  const [avatarUrl, setAvatarUrl] = useState<string[]>([]);
   const [passwords, setPasswords] = useState({ current: "", new_pw: "", confirm: "" });
   const [notifSettings, setNotifSettings] = useState({
     email_reservation: true,
@@ -31,7 +33,11 @@ export default function SettingsPage() {
             name: data.data.full_name || "",
             email: data.data.email || "",
             phone: data.data.phone || "",
+            id: data.data.id || "",
           });
+          if (data.data.avatar_url) {
+            setAvatarUrl([data.data.avatar_url]);
+          }
         }
       } catch (error) {
         console.error("Failed to fetch profile:", error);
@@ -50,7 +56,11 @@ export default function SettingsPage() {
       const res = await fetch("/api/user/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ full_name: profile.name, phone: profile.phone }),
+        body: JSON.stringify({
+          full_name: profile.name,
+          phone: profile.phone,
+          avatar_url: avatarUrl[0] || null,
+        }),
       });
       if (!res.ok && res.status >= 500) throw new Error("Server error");
       const data = await res.json();
@@ -143,6 +153,19 @@ export default function SettingsPage() {
           プロフィール
         </h2>
         <form onSubmit={handleProfileSave} className="space-y-[16px]">
+          <div>
+            <label className="block text-sm font-sans text-gray-600 mb-[6px]">プロフィール画像</label>
+            <FileUploader
+              accept="image/*"
+              value={avatarUrl}
+              onChange={setAvatarUrl}
+              label="画像をアップロード"
+              maxFiles={1}
+              maxSizeMB={5}
+              bucket="user-avatars"
+              pathPrefix={profile.id || "tmp"}
+            />
+          </div>
           <div>
             <label className="block text-sm font-sans text-gray-600 mb-[6px]">お名前</label>
             <input

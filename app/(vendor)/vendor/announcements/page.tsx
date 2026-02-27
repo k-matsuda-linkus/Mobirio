@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Download, Plus, Search, ExternalLink } from "lucide-react";
@@ -18,59 +18,34 @@ interface Announcement {
   updatedAt: string;
 }
 
-const MOCK_ANNOUNCEMENTS: Announcement[] = [
-  {
-    id: "ann-001",
-    type: "店舗からのお知らせ",
-    title: "年末年始の営業時間変更のお知らせ",
-    store: "宮崎橘通り店",
-    publishStart: "2025/12/20",
-    publishEnd: "2026/01/10",
-    updatedAt: "2025/12/15 10:30",
-  },
-  {
-    id: "ann-002",
-    type: "キャンペーン",
-    title: "春のツーリングキャンペーン 全車種10%OFF",
-    store: "全店舗",
-    publishStart: "2026/03/01",
-    publishEnd: "2026/04/30",
-    updatedAt: "2026/02/10 14:20",
-  },
-  {
-    id: "ann-003",
-    type: "メンテナンス",
-    title: "システムメンテナンスのお知らせ（2/20深夜）",
-    store: "全店舗",
-    publishStart: "2026/02/15",
-    publishEnd: "2026/02/21",
-    updatedAt: "2026/02/12 09:00",
-  },
-  {
-    id: "ann-004",
-    type: "店舗からのお知らせ",
-    title: "新車両入荷のお知らせ - Ninja 400 / CBR250RR",
-    store: "宮崎空港店",
-    publishStart: "2026/02/01",
-    publishEnd: "2026/03/31",
-    updatedAt: "2026/01/28 16:45",
-  },
-  {
-    id: "ann-005",
-    type: "キャンペーン",
-    title: "初回利用者限定クーポン配布中",
-    store: "宮崎橘通り店",
-    publishStart: "2026/01/15",
-    publishEnd: "2026/06/30",
-    updatedAt: "2026/01/10 11:00",
-  },
-];
 
 export default function VendorAnnouncementsPage() {
   const router = useRouter();
   const [keyword, setKeyword] = useState("");
   const [searchType, setSearchType] = useState("");
   const [searchStore, setSearchStore] = useState("");
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/vendor/announcements")
+      .then((res) => (res.ok ? res.json() : Promise.reject("API error")))
+      .then((json) => {
+        setAnnouncements(
+          (json.data || []).map((a: Record<string, unknown>) => ({
+            id: a.id,
+            type: (a.announcement_type as string) ?? "店舗からのお知らせ",
+            title: a.title ?? "",
+            store: "全店舗",
+            publishStart: typeof a.published_from === "string" ? a.published_from.slice(0, 10) : "",
+            publishEnd: typeof a.published_until === "string" ? a.published_until.slice(0, 10) : "",
+            updatedAt: typeof a.updated_at === "string" ? a.updated_at.slice(0, 16).replace("T", " ") : "",
+          }))
+        );
+      })
+      .catch((err) => console.error(err))
+      .finally(() => setLoading(false));
+  }, []);
 
   const columns: VendorColumn<Announcement>[] = [
     {
@@ -132,6 +107,8 @@ export default function VendorAnnouncementsPage() {
 
   const inputClass =
     "border border-gray-300 px-[10px] py-[6px] text-sm w-full focus:outline-none focus:border-accent";
+
+  if (loading) return <div className="p-[24px]">読み込み中...</div>;
 
   return (
     <div>
@@ -210,7 +187,7 @@ export default function VendorAnnouncementsPage() {
 
       <VendorDataTable<Announcement>
         columns={columns}
-        data={MOCK_ANNOUNCEMENTS}
+        data={announcements}
         pageSize={10}
         getId={(item) => item.id}
         onRowClick={(item) => router.push(`/vendor/announcements/${item.id}`)}

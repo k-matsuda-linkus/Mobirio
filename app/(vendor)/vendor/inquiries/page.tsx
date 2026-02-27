@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Download, ExternalLink } from "lucide-react";
@@ -23,78 +23,37 @@ interface Inquiry {
   returnAt: string;
 }
 
-const MOCK_INQUIRIES: Inquiry[] = [
-  {
-    id: "inq-001",
-    inquiryAt: "2025/07/10 14:20",
-    content: "ヘルメットのサイズについて確認したいのですが、Lサイズはどのくらいの頭囲に対応していますか？",
-    latestReply: "Lサイズは頭囲57-59cmに対応しています。ご不明点がございましたら...",
-    status: "resolved",
-    reservationNo: "R-20250701-001",
-    customerName: "田中 太郎",
-    storeName: "宮崎橘通り店",
-    vehicleName: "PCX160",
-    departureAt: "2025/07/14 10:00",
-    returnAt: "2025/07/16 10:00",
-  },
-  {
-    id: "inq-002",
-    inquiryAt: "2025/07/11 09:30",
-    content: "出発時間を30分早められますか？フライトの関係で早めに出発したいです。",
-    latestReply: "",
-    status: "pending",
-    reservationNo: "R-20250702-003",
-    customerName: "山田 花子",
-    storeName: "宮崎空港店",
-    vehicleName: "ADV150",
-    departureAt: "2025/07/15 11:00",
-    returnAt: "2025/07/17 17:00",
-  },
-  {
-    id: "inq-003",
-    inquiryAt: "2025/07/12 16:45",
-    content: "ETCカードの利用料金について教えてください。また、高速道路の通行料は別途精算になりますか？",
-    latestReply: "ETCカードのレンタル料は1日200円です。高速道路の通行料は...",
-    status: "responding",
-    reservationNo: "R-20250703-007",
-    customerName: "佐藤 一郎",
-    storeName: "宮崎橘通り店",
-    vehicleName: "CB250R",
-    departureAt: "2025/07/16 09:00",
-    returnAt: "2025/07/18 09:00",
-  },
-  {
-    id: "inq-004",
-    inquiryAt: "2025/07/13 10:15",
-    content: "返却場所を宮崎空港店に変更することは可能ですか？乗り捨てサービスはありますか？",
-    latestReply: "",
-    status: "pending",
-    reservationNo: "R-20250704-002",
-    customerName: "鈴木 次郎",
-    storeName: "宮崎空港店",
-    vehicleName: "Rebel 250",
-    departureAt: "2025/07/17 10:00",
-    returnAt: "2025/07/19 10:00",
-  },
-  {
-    id: "inq-005",
-    inquiryAt: "2025/07/13 18:00",
-    content: "免責補償に加入した場合、補償の範囲を教えてください。自損事故も補償対象ですか？",
-    latestReply: "免責補償にご加入いただくと、事故時の自己負担額が免除されます。自損事故も対象です。",
-    status: "resolved",
-    reservationNo: "R-20250705-011",
-    customerName: "高橋 美咲",
-    storeName: "宮崎橘通り店",
-    vehicleName: "NMAX155",
-    departureAt: "2025/07/18 13:00",
-    returnAt: "2025/07/20 13:00",
-  },
-];
 
 export default function VendorInquiriesPage() {
   const router = useRouter();
   const [searchContent, setSearchContent] = useState("");
   const [searchStatus, setSearchStatus] = useState("");
+  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/vendor/inquiries")
+      .then((res) => (res.ok ? res.json() : Promise.reject("API error")))
+      .then((json) => {
+        setInquiries(
+          (json.data || []).map((i: Record<string, unknown>) => ({
+            id: i.id,
+            inquiryAt: typeof i.created_at === "string" ? i.created_at.slice(0, 16).replace("T", " ").replace(/-/g, "/") : "",
+            content: (i.content as string) ?? "",
+            latestReply: (i.reply as string) ?? "",
+            status: (i.status as string) ?? "pending",
+            reservationNo: (i.reservation_id as string) ?? "",
+            customerName: "",
+            storeName: "",
+            vehicleName: "",
+            departureAt: "",
+            returnAt: "",
+          }))
+        );
+      })
+      .catch((err) => console.error(err))
+      .finally(() => setLoading(false));
+  }, []);
 
   const columns: VendorColumn<Inquiry>[] = [
     {
@@ -182,6 +141,8 @@ export default function VendorInquiriesPage() {
   const inputClass =
     "border border-gray-300 px-[10px] py-[6px] text-sm w-full focus:outline-none focus:border-accent";
 
+  if (loading) return <div className="p-[24px]">読み込み中...</div>;
+
   return (
     <div>
       <VendorPageHeader
@@ -232,7 +193,7 @@ export default function VendorInquiriesPage() {
 
       <VendorDataTable<Inquiry>
         columns={columns}
-        data={MOCK_INQUIRIES}
+        data={inquiries}
         pageSize={20}
         getId={(item) => item.id}
         onRowClick={(item) => router.push(`/vendor/inquiries/${item.id}`)}

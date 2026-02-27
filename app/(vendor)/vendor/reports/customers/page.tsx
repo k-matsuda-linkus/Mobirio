@@ -1,25 +1,72 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import VendorStatsCard from "@/components/vendor/VendorStatsCard";
 import { ReportChart } from "@/components/admin/ReportChart";
 
-const monthlyCustomers = [
-  { label: "8月", value: 22 },
-  { label: "9月", value: 18 },
-  { label: "10月", value: 25 },
-  { label: "11月", value: 20 },
-  { label: "12月", value: 16 },
-  { label: "1月", value: 21 },
-];
+interface CustomerReportAPI {
+  totalCustomers: number;
+  newCustomersThisMonth: number;
+  repeatCustomerRate: number;
+  averageSpent: number;
+  topCustomers: Array<{ id: string; name: string; rentals: number; totalSpent: number; lastVisit: string }>;
+}
 
-const topCustomers = [
-  { name: "田中太郎", visits: 5, totalSpent: 75000, lastVisit: "2025-01-28" },
-  { name: "佐藤花子", visits: 4, totalSpent: 48000, lastVisit: "2025-01-25" },
-  { name: "鈴木一郎", visits: 3, totalSpent: 54000, lastVisit: "2025-01-20" },
-  { name: "高橋美咲", visits: 3, totalSpent: 60000, lastVisit: "2025-01-15" },
-  { name: "渡辺健太", visits: 2, totalSpent: 28000, lastVisit: "2025-01-10" },
-  { name: "山本美優", visits: 2, totalSpent: 24000, lastVisit: "2025-01-05" },
-];
+interface CustomerReport {
+  totalCustomers: number;
+  repeatRate: number;
+  avgSpend: number;
+  monthlyCustomers: Array<{ month: string; count: number }>;
+  repeatDistribution: Array<{ label: string; count: number }>;
+  topCustomers: Array<{ name: string; visits: number; totalSpent: number; lastVisit: string }>;
+}
 
 export default function CustomerReportPage() {
+  const [data, setData] = useState<CustomerReport | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/vendor/reports/customers")
+      .then((r) => r.ok ? r.json() : null)
+      .then((json) => {
+        if (json?.data) {
+          const api = json.data as CustomerReportAPI;
+          // APIレスポンスをフロントエンドの期待する構造にマッピング
+          setData({
+            totalCustomers: api.totalCustomers,
+            repeatRate: Math.round((api.repeatCustomerRate || 0) * 100),
+            avgSpend: api.averageSpent || 0,
+            monthlyCustomers: [], // APIが未提供
+            repeatDistribution: [], // APIが未提供
+            topCustomers: (api.topCustomers || []).map((c) => ({
+              name: c.name,
+              visits: c.rentals,
+              totalSpent: c.totalSpent,
+              lastVisit: c.lastVisit,
+            })),
+          });
+        }
+      })
+      .catch((err) => console.error("customer report error:", err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const monthlyCustomers = (data?.monthlyCustomers || []).slice(-6).map((m) => {
+    const monthNum = parseInt(m.month.split("-")[1]);
+    return { label: `${monthNum}月`, value: m.count };
+  });
+
+  const repeatDist = data?.repeatDistribution || [
+    { label: "1回", count: 0 },
+    { label: "2回", count: 0 },
+    { label: "3回", count: 0 },
+    { label: "4回以上", count: 0 },
+  ];
+
+  const topCustomers = data?.topCustomers || [];
+
+  if (loading) return <div className="p-[24px] text-sm text-gray-500">読み込み中...</div>;
+
   return (
     <div>
       <div className="mb-[24px]">
@@ -27,18 +74,13 @@ export default function CustomerReportPage() {
         <h1 className="font-serif text-2xl font-light">顧客レポート</h1>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-[16px] mb-[24px]">
-        <VendorStatsCard title="総顧客数" value="86" trend={{ value: 8.5, positive: true }} />
-        <VendorStatsCard title="リピート率" value="34.9%" trend={{ value: 2.3, positive: true }} />
-        <VendorStatsCard title="顧客単価" value="¥16,071" trend={{ value: 3.2, positive: true }} />
+        <VendorStatsCard title="総顧客数" value={String(data?.totalCustomers ?? 0)} />
+        <VendorStatsCard title="リピート率" value={`${data?.repeatRate ?? 0}%`} />
+        <VendorStatsCard title="顧客単価" value={`¥${(data?.avgSpend ?? 0).toLocaleString()}`} />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-[24px] mb-[24px]">
         <ReportChart title="月別ユニーク顧客数" data={monthlyCustomers} height={220} type="line" />
-        <ReportChart title="リピート回数分布" data={[
-          { label: "1回", value: 56 },
-          { label: "2回", value: 18 },
-          { label: "3回", value: 8 },
-          { label: "4回以上", value: 4 },
-        ]} height={220} type="pie" />
+        <ReportChart title="リピート回数分布" data={repeatDist.map((d) => ({ label: d.label, value: d.count }))} height={220} type="pie" />
       </div>
       <div className="bg-white border border-gray-100">
         <h3 className="px-[16px] py-[12px] text-sm font-medium text-gray-700 border-b border-gray-100">上位顧客</h3>

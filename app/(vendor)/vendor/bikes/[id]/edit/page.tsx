@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Trash2, Plus, X, Star, ChevronDown } from "lucide-react";
@@ -8,7 +8,6 @@ import { VendorPageHeader } from "@/components/vendor/VendorPageHeader";
 import { StatusBadge } from "@/components/vendor/StatusBadge";
 import { FileUploader } from "@/components/ui/FileUploader";
 import { RichTextEditor } from "@/components/ui/RichTextEditor";
-import { mockBikes } from "@/lib/mock/bikes";
 import { ENGINE_TYPES, LICENSE_TYPES, VEHICLE_CLASSES } from "@/lib/constants";
 import { DEFAULT_PRICING } from "@/lib/booking/pricing";
 import type { VehicleClass } from "@/types/database";
@@ -158,15 +157,29 @@ export default function BikeEditPage() {
   const router = useRouter();
   const bikeId = params.id as string;
 
-  // mockBikes からデータを検索（数値indexまたはid一致）
-  const bikeData = useMemo(() => {
-    const idx = Number(bikeId);
-    if (!isNaN(idx) && idx >= 0 && idx < mockBikes.length) {
-      return mockBikes[idx];
-    }
-    return mockBikes.find((b) => b.id === bikeId) ?? mockBikes[0];
+  // APIから取得したデータ
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const [bikeData, setBikeData] = useState<any>(null);
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+  const [pageLoading, setPageLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`/api/vendor/bikes/${bikeId}`)
+      .then((res) => (res.ok ? res.json() : Promise.reject("API error")))
+      .then((json) => setBikeData(json.data))
+      .catch((err) => console.error("車両データの取得に失敗:", err))
+      .finally(() => setPageLoading(false));
   }, [bikeId]);
 
+  if (pageLoading) return <div className="p-[24px]">読み込み中...</div>;
+  if (!bikeData) return <div className="p-[24px]">車両が見つかりません</div>;
+
+  return <BikeEditForm bikeData={bikeData} bikeId={bikeId} router={router} />;
+}
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function BikeEditForm({ bikeData, bikeId, router }: { bikeData: any; bikeId: string; router: any }) {
+/* eslint-enable @typescript-eslint/no-explicit-any */
   // 登録No を3分割
   const regParts = useMemo(() => {
     const parts = (bikeData.registration_number ?? "").split(" ");
@@ -174,6 +187,7 @@ export default function BikeEditPage() {
   }, [bikeData]);
 
   // State
+  const [saving, setSaving] = useState(false);
   const [isPublished, setIsPublished] = useState(bikeData.is_published ?? true);
   const [store, setStore] = useState("s-001");
   const [vehicleName, setVehicleName] = useState(bikeData.name);
@@ -205,14 +219,14 @@ export default function BikeEditPage() {
   const [rateAdditional24h, setRateAdditional24h] = useState(String(bikeData.additional_24h_rate));
   const [insurance, setInsurance] = useState(bikeData.insurance_status ?? "insurance_none");
   const [inspectionFile, setInspectionFile] = useState<string[]>([]);
-  const [equipment, setEquipment] = useState(bikeData.equipment ?? {
+  const [equipment, setEquipment] = useState<Record<string, boolean>>(bikeData.equipment ?? {
     etc: false, abs: false, usb: false, smartphoneHolderPaid: false,
     smartphoneHolderFree: false, rearCarrier: false, gripHeater: false, driveRecorder: false,
   });
   const [longTermRental, setLongTermRental] = useState(bikeData.is_long_term ?? false);
   const [isFeatured, setIsFeatured] = useState(bikeData.is_featured ?? false);
   const [displayOrder, setDisplayOrder] = useState(String(bikeData.display_order ?? ""));
-  const [vehicleImages, setVehicleImages] = useState(bikeData.image_urls);
+  const [vehicleImages, setVehicleImages] = useState<string[]>(bikeData.image_urls ?? []);
   const [youtubeUrl, setYoutubeUrl] = useState(bikeData.youtube_url ?? "");
   const [remarks, setRemarks] = useState(bikeData.notes_html ?? "");
   const [mileage, setMileage] = useState(String(bikeData.current_mileage ?? ""));
@@ -866,6 +880,8 @@ export default function BikeEditPage() {
                   value={externalInsuranceFile}
                   onChange={setExternalInsuranceFile}
                   label="保険証をアップロード"
+                  bucket="contracts"
+                  pathPrefix={`insurance/${bikeId}`}
                 />
               </div>
             )}
@@ -880,6 +896,8 @@ export default function BikeEditPage() {
             value={inspectionFile}
             onChange={setInspectionFile}
             label="ファイルをアップロード"
+            bucket="contracts"
+            pathPrefix={`inspections/${bikeId}`}
           />
         </div>
 
@@ -958,6 +976,8 @@ export default function BikeEditPage() {
             onChange={setVehicleImages}
             label="画像をアップロード"
             maxFiles={10}
+            bucket="bike-images"
+            pathPrefix={bikeId}
           />
           {vehicleImages.length > 0 && (
             <table className="w-full mt-[12px] text-sm">
@@ -1102,9 +1122,19 @@ export default function BikeEditPage() {
         <div className="flex items-center justify-between pt-[16px] pb-[40px]">
           <button
             type="button"
-            onClick={() => {
-              if (confirm("この車両を削除してもよろしいですか？")) {
-                router.push("/vendor/bikes");
+            onClick={async () => {
+              if (!confirm("この車両を削除してもよろしいですか？")) return;
+              try {
+                const res = await fetch(`/api/vendor/bikes/${bikeId}`, { method: "DELETE" });
+                if (res.ok) {
+                  alert("車両をアーカイブしました");
+                  router.push("/vendor/bikes");
+                } else {
+                  const json = await res.json();
+                  alert(json.message || "削除に失敗しました");
+                }
+              } catch {
+                alert("削除に失敗しました");
               }
             }}
             className="flex items-center gap-[6px] text-sm text-red-500 border border-red-300 px-[16px] py-[10px] hover:bg-red-50"
@@ -1121,10 +1151,66 @@ export default function BikeEditPage() {
             </Link>
             <button
               type="button"
-              onClick={() => alert("保存しました")}
-              className="bg-accent text-white px-[32px] py-[10px] text-sm hover:bg-accent/90"
+              disabled={saving}
+              onClick={async () => {
+                setSaving(true);
+                try {
+                  const res = await fetch(`/api/vendor/bikes/${bikeId}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      name: vehicleName,
+                      manufacturer: maker,
+                      displacement: displacement ? Number(displacement) : null,
+                      model_code: modelCode || null,
+                      frame_number: chassisNumber || null,
+                      display_name: displayName || vehicleName,
+                      color: color || null,
+                      engine_type: engineType || null,
+                      seat_height: seatHeight ? Number(seatHeight) : null,
+                      weight: bikeWeight ? Number(bikeWeight) : null,
+                      license_type: licenseType || null,
+                      description: description || null,
+                      model_year: modelYear ? Number(modelYear) : null,
+                      first_registration: firstRegYear && firstRegMonth ? `${firstRegYear}-${firstRegMonth}` : null,
+                      inspection_expiry: inspectionExpiry || null,
+                      registration_number: regArea && regKana && regNumber ? `${regArea} ${regKana} ${regNumber}` : null,
+                      vehicle_class: vehicleClass,
+                      hourly_rate_2h: Number(rate2h) || 0,
+                      hourly_rate_4h: Number(rate4h) || 0,
+                      daily_rate_1day: Number(rate1day) || 0,
+                      daily_rate_24h: Number(rate24h) || 0,
+                      daily_rate_32h: Number(rate32h) || 0,
+                      overtime_rate_per_hour: Number(rateOvertime) || 0,
+                      additional_24h_rate: Number(rateAdditional24h) || 0,
+                      insurance_status: insurance,
+                      is_published: isPublished,
+                      equipment,
+                      is_long_term: longTermRental,
+                      is_featured: isFeatured,
+                      display_order: displayOrder ? Number(displayOrder) : 0,
+                      image_urls: vehicleImages,
+                      youtube_url: youtubeUrl || null,
+                      notes_html: remarks || null,
+                      current_mileage: mileage ? Number(mileage) : 0,
+                      suspension_periods: suspensionPeriods,
+                    }),
+                  });
+                  const json = await res.json();
+                  if (res.ok) {
+                    alert("保存しました");
+                  } else {
+                    alert(json.message || "保存に失敗しました");
+                  }
+                } catch {
+                  alert("保存に失敗しました");
+                } finally {
+                  setSaving(false);
+                }
+              }}
+              className="bg-accent text-white px-[32px] py-[10px] text-sm hover:bg-accent/90 disabled:opacity-50"
             >
-              登録
+              {saving ? "保存中..." : "登録"}
             </button>
           </div>
         </div>

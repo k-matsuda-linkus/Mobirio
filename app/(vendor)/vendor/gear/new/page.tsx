@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { VendorPageHeader } from "@/components/vendor/VendorPageHeader";
 import { FileUploader } from "@/components/ui/FileUploader";
@@ -22,6 +23,8 @@ const gearTypeOptions = [
 const COMMENT_MAX_LENGTH = 500;
 
 export default function GearNewPage() {
+  const router = useRouter();
+  const [saving, setSaving] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
   const [store, setStore] = useState("");
   const [gearType, setGearType] = useState("ヘルメット");
@@ -260,10 +263,43 @@ export default function GearNewPage() {
           </Link>
           <button
             type="button"
-            onClick={() => alert("登録しました")}
-            className="bg-accent text-white px-[32px] py-[10px] text-sm hover:bg-accent/90"
+            disabled={saving}
+            onClick={async () => {
+              if (!gearTypeName) {
+                alert("ライダーズギア種別名は必須です");
+                return;
+              }
+              setSaving(true);
+              try {
+                const res = await fetch("/api/vendor/options", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    name: gearTypeName,
+                    description: comment || null,
+                    category: "accessory",
+                    price_per_day: firstDayType === "perDay" && firstDayPrice ? Number(firstDayPrice) : null,
+                    price_per_use: firstDayType === "perRental" && firstDayPrice ? Number(firstDayPrice) : null,
+                    is_active: isPublished,
+                    image_url: image[0] ?? null,
+                  }),
+                });
+                const json = await res.json();
+                if (res.ok) {
+                  alert("登録しました");
+                  router.push("/vendor/gear");
+                } else {
+                  alert(json.message || "登録に失敗しました");
+                }
+              } catch {
+                alert("登録に失敗しました");
+              } finally {
+                setSaving(false);
+              }
+            }}
+            className="bg-accent text-white px-[32px] py-[10px] text-sm hover:bg-accent/90 disabled:opacity-50"
           >
-            登録
+            {saving ? "登録中..." : "登録"}
           </button>
         </div>
       </div>

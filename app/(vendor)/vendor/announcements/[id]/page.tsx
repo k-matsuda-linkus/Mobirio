@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
 import { VendorPageHeader } from "@/components/vendor/VendorPageHeader";
 import { RichTextEditor } from "@/components/ui/RichTextEditor";
 import { FileUploader } from "@/components/ui/FileUploader";
@@ -25,6 +25,8 @@ const MOCK_DETAIL = {
 
 export default function VendorAnnouncementDetailPage() {
   const router = useRouter();
+  const params = useParams();
+  const announcementId = params.id as string;
   const [type, setType] = useState(MOCK_DETAIL.type);
   const [store, setStore] = useState(MOCK_DETAIL.store);
   const [title, setTitle] = useState(MOCK_DETAIL.title);
@@ -33,9 +35,31 @@ export default function VendorAnnouncementDetailPage() {
   const [publishStart, setPublishStart] = useState(MOCK_DETAIL.publishStart);
   const [publishEnd, setPublishEnd] = useState(MOCK_DETAIL.publishEnd);
   const [detail, setDetail] = useState(MOCK_DETAIL.detail);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`/api/vendor/announcements/${announcementId}`)
+      .then((res) => (res.ok ? res.json() : Promise.reject("API error")))
+      .then((json) => {
+        const d = json.data;
+        if (d) {
+          if (d.announcement_type) setType(d.announcement_type);
+          if (d.title) setTitle(d.title);
+          if (d.url) setUrl(d.url);
+          if (d.image_url) setTitleImage([d.image_url]);
+          if (d.detail_html) setDetail(d.detail_html);
+          if (d.published_from) setPublishStart(d.published_from.slice(0, 10));
+          if (d.published_until) setPublishEnd(d.published_until.slice(0, 10));
+        }
+      })
+      .catch((err) => console.error(err))
+      .finally(() => setLoading(false));
+  }, [announcementId]);
 
   const inputClass =
     "border border-gray-300 px-[10px] py-[6px] text-sm w-full focus:outline-none focus:border-accent";
+
+  if (loading) return <div className="p-[24px]">読み込み中...</div>;
 
   return (
     <div>
@@ -166,7 +190,10 @@ export default function VendorAnnouncementDetailPage() {
         <button
           onClick={() => {
             if (confirm("このお知らせを削除しますか？")) {
-              router.push("/vendor/announcements");
+              fetch(`/api/vendor/announcements/${announcementId}`, { method: "DELETE" })
+                .then((res) => (res.ok ? res.json() : Promise.reject("API error")))
+                .then(() => router.push("/vendor/announcements"))
+                .catch(() => alert("削除に失敗しました"));
             }
           }}
           className="border border-red-300 text-red-600 px-[20px] py-[8px] text-sm hover:bg-red-50"
@@ -180,7 +207,27 @@ export default function VendorAnnouncementDetailPage() {
           >
             戻る
           </button>
-          <button className="bg-accent text-white px-[24px] py-[8px] text-sm hover:bg-accent/90">
+          <button
+            onClick={() => {
+              fetch(`/api/vendor/announcements/${announcementId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  announcement_type: type,
+                  title,
+                  url: url || null,
+                  image_url: titleImage.length > 0 ? titleImage[0] : null,
+                  detail_html: detail,
+                  published_from: publishStart || null,
+                  published_until: publishEnd || null,
+                }),
+              })
+                .then((res) => (res.ok ? res.json() : Promise.reject("API error")))
+                .then(() => alert("保存しました"))
+                .catch(() => alert("保存に失敗しました"));
+            }}
+            className="bg-accent text-white px-[24px] py-[8px] text-sm hover:bg-accent/90"
+          >
             登録
           </button>
         </div>

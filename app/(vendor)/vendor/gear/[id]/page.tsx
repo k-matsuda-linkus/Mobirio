@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Trash2 } from "lucide-react";
@@ -20,24 +20,6 @@ const gearTypeOptions = [
   "その他",
 ];
 
-const mockData = {
-  isPublished: true,
-  store: "s-001",
-  gearType: "ヘルメット",
-  gearTypeName: "ヘルメット（ジェット）",
-  inventoryManagement: "yes",
-  size: "M",
-  comment: "SHOEI J-Cruise IIジェットヘルメット。インナーサンバイザー付き。快適なフィッティングで長距離ツーリングにも最適です。",
-  image: [] as string[],
-  firstDayType: "perDay",
-  firstDayPrice: "1100",
-  secondDayPrice: "550",
-  createdAt: "2025-08-15 10:05:00",
-  createdBy: "管理者A",
-  updatedAt: "2026-01-20 09:30:00",
-  updatedBy: "管理者B",
-};
-
 const COMMENT_MAX_LENGTH = 500;
 
 export default function GearDetailPage() {
@@ -45,17 +27,40 @@ export default function GearDetailPage() {
   const router = useRouter();
   const gearId = params.id as string;
 
-  const [isPublished, setIsPublished] = useState(mockData.isPublished);
-  const [store, setStore] = useState(mockData.store);
-  const [gearType, setGearType] = useState(mockData.gearType);
-  const [gearTypeName, setGearTypeName] = useState(mockData.gearTypeName);
-  const [inventoryManagement, setInventoryManagement] = useState(mockData.inventoryManagement);
-  const [size, setSize] = useState(mockData.size);
-  const [comment, setComment] = useState(mockData.comment);
-  const [image, setImage] = useState(mockData.image);
-  const [firstDayType, setFirstDayType] = useState(mockData.firstDayType);
-  const [firstDayPrice, setFirstDayPrice] = useState(mockData.firstDayPrice);
-  const [secondDayPrice, setSecondDayPrice] = useState(mockData.secondDayPrice);
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const [gearData, setGearData] = useState<any>(null);
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+  const [pageLoading, setPageLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`/api/vendor/options/${gearId}`)
+      .then((res) => (res.ok ? res.json() : Promise.reject("API error")))
+      .then((json) => setGearData(json.data))
+      .catch((err) => console.error("ギアデータの取得に失敗:", err))
+      .finally(() => setPageLoading(false));
+  }, [gearId]);
+
+  if (pageLoading) return <div className="p-[24px]">読み込み中...</div>;
+  if (!gearData) return <div className="p-[24px]">ギアが見つかりません</div>;
+
+  return <GearEditForm gearData={gearData} gearId={gearId} router={router} />;
+}
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function GearEditForm({ gearData, gearId, router }: { gearData: any; gearId: string; router: any }) {
+/* eslint-enable @typescript-eslint/no-explicit-any */
+  const [saving, setSaving] = useState(false);
+  const [isPublished, setIsPublished] = useState(gearData.is_active ?? true);
+  const [store, setStore] = useState("s-001");
+  const [gearType, setGearType] = useState("ヘルメット");
+  const [gearTypeName, setGearTypeName] = useState(gearData.name ?? "");
+  const [inventoryManagement, setInventoryManagement] = useState("yes");
+  const [size, setSize] = useState("フリー");
+  const [comment, setComment] = useState(gearData.description ?? "");
+  const [image, setImage] = useState<string[]>(gearData.image_url ? [gearData.image_url] : []);
+  const [firstDayType, setFirstDayType] = useState(gearData.price_per_use != null ? "perRental" : "perDay");
+  const [firstDayPrice, setFirstDayPrice] = useState(String(gearData.price_per_day ?? gearData.price_per_use ?? ""));
+  const [secondDayPrice, setSecondDayPrice] = useState("");
 
   const inputClass = "w-full border border-gray-200 px-[12px] py-[10px] text-sm focus:border-accent focus:outline-none";
   const labelClass = "block text-xs font-medium text-gray-500 mb-[4px]";
@@ -68,7 +73,7 @@ export default function GearDetailPage() {
         title="ライダーズギア編集"
         breadcrumbs={[
           { label: "ライダーズギア一覧", href: "/vendor/gear" },
-          { label: mockData.gearTypeName },
+          { label: gearData.name ?? "編集" },
         ]}
       />
 
@@ -278,15 +283,15 @@ export default function GearDetailPage() {
           <h2 className={sectionTitle}>メタ情報</h2>
           <div className="grid grid-cols-2 gap-[16px] text-sm">
             <div>
-              <span className="text-xs text-gray-400">作成日時 / 作成者</span>
+              <span className="text-xs text-gray-400">作成日時</span>
               <p className="text-gray-600 mt-[2px]">
-                {mockData.createdAt} / {mockData.createdBy}
+                {gearData.created_at ?? "—"}
               </p>
             </div>
             <div>
-              <span className="text-xs text-gray-400">更新日時 / 更新者</span>
+              <span className="text-xs text-gray-400">更新日時</span>
               <p className="text-gray-600 mt-[2px]">
-                {mockData.updatedAt} / {mockData.updatedBy}
+                {gearData.updated_at ?? "—"}
               </p>
             </div>
           </div>
@@ -296,9 +301,19 @@ export default function GearDetailPage() {
         <div className="flex items-center justify-between pt-[16px] pb-[40px]">
           <button
             type="button"
-            onClick={() => {
-              if (confirm("このライダーズギアを削除してもよろしいですか？")) {
-                router.push("/vendor/gear");
+            onClick={async () => {
+              if (!confirm("このライダーズギアを削除してもよろしいですか？")) return;
+              try {
+                const res = await fetch(`/api/vendor/options/${gearId}`, { method: "DELETE" });
+                if (res.ok) {
+                  alert("ギアを削除しました");
+                  router.push("/vendor/gear");
+                } else {
+                  const json = await res.json();
+                  alert(json.message || "削除に失敗しました");
+                }
+              } catch {
+                alert("削除に失敗しました");
               }
             }}
             className="flex items-center gap-[6px] text-sm text-red-500 border border-red-300 px-[16px] py-[10px] hover:bg-red-50"
@@ -315,10 +330,37 @@ export default function GearDetailPage() {
             </Link>
             <button
               type="button"
-              onClick={() => alert("保存しました")}
-              className="bg-accent text-white px-[32px] py-[10px] text-sm hover:bg-accent/90"
+              disabled={saving}
+              onClick={async () => {
+                setSaving(true);
+                try {
+                  const res = await fetch(`/api/vendor/options/${gearId}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      name: gearTypeName,
+                      description: comment || null,
+                      category: "accessory",
+                      price_per_day: firstDayType === "perDay" && firstDayPrice ? Number(firstDayPrice) : null,
+                      price_per_use: firstDayType === "perRental" && firstDayPrice ? Number(firstDayPrice) : null,
+                      is_active: isPublished,
+                    }),
+                  });
+                  const json = await res.json();
+                  if (res.ok) {
+                    alert("保存しました");
+                  } else {
+                    alert(json.message || "保存に失敗しました");
+                  }
+                } catch {
+                  alert("保存に失敗しました");
+                } finally {
+                  setSaving(false);
+                }
+              }}
+              className="bg-accent text-white px-[32px] py-[10px] text-sm hover:bg-accent/90 disabled:opacity-50"
             >
-              登録
+              {saving ? "保存中..." : "登録"}
             </button>
           </div>
         </div>

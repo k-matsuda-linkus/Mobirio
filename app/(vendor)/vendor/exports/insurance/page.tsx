@@ -1,103 +1,68 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Download } from "lucide-react";
 import { VendorPageHeader } from "@/components/vendor/VendorPageHeader";
 
-interface InsuranceRow {
-  id: string;
-  corporateCode: string;
-  branchNo: string;
-  storeName: string;
-  registrationNo: string;
-  maker: string;
-  vehicleModel: string;
-  chassisNo: string;
-  enrollDate: string;
-  cancelDate: string;
-  category: string;
-  monthlyPremium: number;
+interface InsuranceRecordAPI {
+  reservation_id: string;
+  bike_name: string;
+  user_name: string;
+  start_date: string;
+  end_date: string;
+  days: number;
+  insurance_type: string;
+  insurance_daily_rate: number;
+  insurance_total: number;
 }
 
-const MOCK_INSURANCE: InsuranceRow[] = [
-  {
-    id: "ins-001",
-    corporateCode: "C-10001",
-    branchNo: "001",
-    storeName: "宮崎橘通り店",
-    registrationNo: "宮崎 あ 12-34",
-    maker: "ホンダ",
-    vehicleModel: "PCX160",
-    chassisNo: "JF81-1001234",
-    enrollDate: "2025/04/01",
-    cancelDate: "",
-    category: "二輪",
-    monthlyPremium: 3500,
-  },
-  {
-    id: "ins-002",
-    corporateCode: "C-10001",
-    branchNo: "001",
-    storeName: "宮崎橘通り店",
-    registrationNo: "宮崎 い 56-78",
-    maker: "ホンダ",
-    vehicleModel: "ADV150",
-    chassisNo: "KF38-2005678",
-    enrollDate: "2025/04/01",
-    cancelDate: "",
-    category: "二輪",
-    monthlyPremium: 3500,
-  },
-  {
-    id: "ins-003",
-    corporateCode: "C-10001",
-    branchNo: "002",
-    storeName: "宮崎空港店",
-    registrationNo: "宮崎 う 90-12",
-    maker: "ホンダ",
-    vehicleModel: "CB250R",
-    chassisNo: "MC52-3009012",
-    enrollDate: "2025/05/15",
-    cancelDate: "",
-    category: "二輪",
-    monthlyPremium: 4200,
-  },
-  {
-    id: "ins-004",
-    corporateCode: "C-10001",
-    branchNo: "002",
-    storeName: "宮崎空港店",
-    registrationNo: "宮崎 え 34-56",
-    maker: "ホンダ",
-    vehicleModel: "Rebel 250",
-    chassisNo: "MC49-4003456",
-    enrollDate: "2025/06/01",
-    cancelDate: "",
-    category: "二輪",
-    monthlyPremium: 4200,
-  },
-  {
-    id: "ins-005",
-    corporateCode: "C-10001",
-    branchNo: "001",
-    storeName: "宮崎橘通り店",
-    registrationNo: "宮崎 お 78-90",
-    maker: "ヤマハ",
-    vehicleModel: "NMAX155",
-    chassisNo: "SG50-5007890",
-    enrollDate: "2025/04/01",
-    cancelDate: "2025/11/30",
-    category: "原付",
-    monthlyPremium: 2800,
-  },
-];
+interface InsuranceRow {
+  id: string;
+  bikeName: string;
+  userName: string;
+  startDate: string;
+  endDate: string;
+  days: number;
+  insuranceType: string;
+  dailyRate: number;
+  totalAmount: number;
+}
 
 export default function VendorInsuranceExportPage() {
   const [year, setYear] = useState("2026");
   const [month, setMonth] = useState("2");
-  const [store, setStore] = useState("");
+  const [store, setStore] = useState(""); // eslint-disable-line @typescript-eslint/no-unused-vars
+  const [rows, setRows] = useState<InsuranceRow[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const totalPremium = MOCK_INSURANCE.reduce((sum, row) => sum + row.monthlyPremium, 0);
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/vendor/exports/insurance?year=${year}&month=${month}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((json) => {
+        if (json?.data?.records) {
+          const mapped: InsuranceRow[] = (json.data.records as InsuranceRecordAPI[]).map((rec) => ({
+            id: rec.reservation_id,
+            bikeName: rec.bike_name,
+            userName: rec.user_name,
+            startDate: rec.start_date,
+            endDate: rec.end_date,
+            days: rec.days,
+            insuranceType: rec.insurance_type === "premium" ? "プレミアム" : "スタンダード",
+            dailyRate: rec.insurance_daily_rate,
+            totalAmount: rec.insurance_total,
+          }));
+          setRows(mapped);
+        } else {
+          setRows([]);
+        }
+      })
+      .catch((err) => console.error("insurance export error:", err))
+      .finally(() => setLoading(false));
+  }, [year, month]);
+
+  const filteredRows = rows;
+  const totalPremium = filteredRows.reduce((sum, row) => sum + row.totalAmount, 0);
 
   const inputClass =
     "border border-gray-300 px-[10px] py-[6px] text-sm focus:outline-none focus:border-accent";
@@ -155,54 +120,56 @@ export default function VendorInsuranceExportPage() {
       </div>
 
       {/* Preview table */}
-      <div className="bg-white border border-gray-200 overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="bg-gray-50 border-b border-gray-200">
-              <th className="px-[12px] py-[10px] text-left text-xs font-medium text-gray-500 whitespace-nowrap">法人コード</th>
-              <th className="px-[12px] py-[10px] text-left text-xs font-medium text-gray-500 whitespace-nowrap">拠点番号</th>
-              <th className="px-[12px] py-[10px] text-left text-xs font-medium text-gray-500 whitespace-nowrap">店舗名称</th>
-              <th className="px-[12px] py-[10px] text-left text-xs font-medium text-gray-500 whitespace-nowrap">登録番号</th>
-              <th className="px-[12px] py-[10px] text-left text-xs font-medium text-gray-500 whitespace-nowrap">メーカー</th>
-              <th className="px-[12px] py-[10px] text-left text-xs font-medium text-gray-500 whitespace-nowrap">車種</th>
-              <th className="px-[12px] py-[10px] text-left text-xs font-medium text-gray-500 whitespace-nowrap">車台番号</th>
-              <th className="px-[12px] py-[10px] text-left text-xs font-medium text-gray-500 whitespace-nowrap">加入日</th>
-              <th className="px-[12px] py-[10px] text-left text-xs font-medium text-gray-500 whitespace-nowrap">解約日</th>
-              <th className="px-[12px] py-[10px] text-left text-xs font-medium text-gray-500 whitespace-nowrap">区分</th>
-              <th className="px-[12px] py-[10px] text-right text-xs font-medium text-gray-500 whitespace-nowrap">月額保険料</th>
-            </tr>
-          </thead>
-          <tbody>
-            {MOCK_INSURANCE.map((row) => (
-              <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50">
-                <td className="px-[12px] py-[10px] text-sm text-gray-700 whitespace-nowrap">{row.corporateCode}</td>
-                <td className="px-[12px] py-[10px] text-sm text-gray-700">{row.branchNo}</td>
-                <td className="px-[12px] py-[10px] text-sm text-gray-700 whitespace-nowrap">{row.storeName}</td>
-                <td className="px-[12px] py-[10px] text-sm text-gray-700 whitespace-nowrap">{row.registrationNo}</td>
-                <td className="px-[12px] py-[10px] text-sm text-gray-700">{row.maker}</td>
-                <td className="px-[12px] py-[10px] text-sm text-gray-700">{row.vehicleModel}</td>
-                <td className="px-[12px] py-[10px] text-sm text-gray-700 font-mono text-xs">{row.chassisNo}</td>
-                <td className="px-[12px] py-[10px] text-sm text-gray-700 whitespace-nowrap">{row.enrollDate}</td>
-                <td className="px-[12px] py-[10px] text-sm text-gray-700 whitespace-nowrap">{row.cancelDate || "---"}</td>
-                <td className="px-[12px] py-[10px] text-sm text-gray-700">{row.category}</td>
-                <td className="px-[12px] py-[10px] text-sm text-gray-700 text-right whitespace-nowrap">
-                  &yen;{row.monthlyPremium.toLocaleString()}
+      {loading ? (
+        <div className="text-sm text-gray-500 py-[24px] text-center">読み込み中...</div>
+      ) : (
+        <div className="bg-white border border-gray-200 overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200">
+                <th className="px-[12px] py-[10px] text-left text-xs font-medium text-gray-500 whitespace-nowrap">予約ID</th>
+                <th className="px-[12px] py-[10px] text-left text-xs font-medium text-gray-500 whitespace-nowrap">車両名</th>
+                <th className="px-[12px] py-[10px] text-left text-xs font-medium text-gray-500 whitespace-nowrap">利用者</th>
+                <th className="px-[12px] py-[10px] text-left text-xs font-medium text-gray-500 whitespace-nowrap">開始日</th>
+                <th className="px-[12px] py-[10px] text-left text-xs font-medium text-gray-500 whitespace-nowrap">終了日</th>
+                <th className="px-[12px] py-[10px] text-right text-xs font-medium text-gray-500 whitespace-nowrap">日数</th>
+                <th className="px-[12px] py-[10px] text-left text-xs font-medium text-gray-500 whitespace-nowrap">保険種別</th>
+                <th className="px-[12px] py-[10px] text-right text-xs font-medium text-gray-500 whitespace-nowrap">日額</th>
+                <th className="px-[12px] py-[10px] text-right text-xs font-medium text-gray-500 whitespace-nowrap">保険料合計</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredRows.map((row) => (
+                <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50">
+                  <td className="px-[12px] py-[10px] text-sm text-gray-700 font-mono text-xs whitespace-nowrap">{row.id}</td>
+                  <td className="px-[12px] py-[10px] text-sm text-gray-700 whitespace-nowrap">{row.bikeName}</td>
+                  <td className="px-[12px] py-[10px] text-sm text-gray-700 whitespace-nowrap">{row.userName}</td>
+                  <td className="px-[12px] py-[10px] text-sm text-gray-700 whitespace-nowrap">{row.startDate}</td>
+                  <td className="px-[12px] py-[10px] text-sm text-gray-700 whitespace-nowrap">{row.endDate}</td>
+                  <td className="px-[12px] py-[10px] text-sm text-gray-700 text-right">{row.days}</td>
+                  <td className="px-[12px] py-[10px] text-sm text-gray-700">{row.insuranceType}</td>
+                  <td className="px-[12px] py-[10px] text-sm text-gray-700 text-right whitespace-nowrap">
+                    &yen;{row.dailyRate.toLocaleString()}
+                  </td>
+                  <td className="px-[12px] py-[10px] text-sm text-gray-700 text-right whitespace-nowrap">
+                    &yen;{row.totalAmount.toLocaleString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="bg-gray-50 border-t border-gray-200">
+                <td colSpan={8} className="px-[12px] py-[10px] text-sm font-medium text-gray-700 text-right">
+                  合計
+                </td>
+                <td className="px-[12px] py-[10px] text-sm font-medium text-gray-900 text-right whitespace-nowrap">
+                  &yen;{totalPremium.toLocaleString()}
                 </td>
               </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr className="bg-gray-50 border-t border-gray-200">
-              <td colSpan={10} className="px-[12px] py-[10px] text-sm font-medium text-gray-700 text-right">
-                合計
-              </td>
-              <td className="px-[12px] py-[10px] text-sm font-medium text-gray-900 text-right whitespace-nowrap">
-                &yen;{totalPremium.toLocaleString()}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
+            </tfoot>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,74 +1,70 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireVendor } from "@/lib/auth/requireAuth";
+import { isSandboxMode, sandboxLog } from "@/lib/sandbox";
 
-/**
- * GET /api/vendor/announcements
- * List announcements for the authenticated vendor.
- */
+const mockAnnouncements = [
+  {
+    id: "ann_001", vendor_id: "v-001", title: "年末年始の営業時間について",
+    announcement_type: "info",
+    detail_html: "12/31〜1/3は休業とさせていただきます。", url: null, image_url: null,
+    published_from: "2025-01-10T00:00:00Z", published_until: null,
+    created_at: "2025-01-09T15:00:00Z", updated_at: "2025-01-09T15:00:00Z",
+  },
+  {
+    id: "ann_002", vendor_id: "v-001", title: "新車追加のお知らせ",
+    announcement_type: "info",
+    detail_html: "Honda ADV160を導入しました。", url: null, image_url: null,
+    published_from: "2025-01-05T00:00:00Z", published_until: null,
+    created_at: "2025-01-04T10:00:00Z", updated_at: "2025-01-04T10:00:00Z",
+  },
+];
+
 export async function GET(request: NextRequest) {
   const authResult = await requireVendor(request);
-  if (authResult instanceof NextResponse) {
-    return authResult;
-  }
+  if (authResult instanceof NextResponse) return authResult;
+  const { vendor, supabase } = authResult;
 
-  const { vendor } = authResult;
   const searchParams = request.nextUrl.searchParams;
   const limit = parseInt(searchParams.get("limit") || "50");
   const offset = parseInt(searchParams.get("offset") || "0");
 
-  // TODO: Replace with Supabase query once schema is applied
-  const mockAnnouncements = [
-    {
-      id: "ann_001",
-      vendor_id: vendor.id,
-      title: "年末年始の営業時間について",
-      body: "12/31〜1/3は休業とさせていただきます。",
-      is_published: true,
-      published_at: "2025-01-10T00:00:00Z",
-      created_at: "2025-01-09T15:00:00Z",
-      updated_at: "2025-01-09T15:00:00Z",
-    },
-    {
-      id: "ann_002",
-      vendor_id: vendor.id,
-      title: "新車追加のお知らせ",
-      body: "Honda ADV160を導入しました。",
-      is_published: true,
-      published_at: "2025-01-05T00:00:00Z",
-      created_at: "2025-01-04T10:00:00Z",
-      updated_at: "2025-01-04T10:00:00Z",
-    },
-  ];
+  if (isSandboxMode()) {
+    sandboxLog("GET /api/vendor/announcements", `vendor=${vendor.id}`);
+    const filtered = mockAnnouncements.filter((a) => a.vendor_id === vendor.id);
+    return NextResponse.json({
+      data: filtered.slice(offset, offset + limit),
+      pagination: { total: filtered.length, limit, offset },
+      message: "OK",
+    });
+  }
+
+  const { data, error, count } = await supabase
+    .from("vendor_announcements")
+    .select("*", { count: "exact" })
+    .eq("vendor_id", vendor.id)
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) {
+    return NextResponse.json(
+      { error: "Database error", message: error.message },
+      { status: 500 }
+    );
+  }
 
   return NextResponse.json({
-    data: mockAnnouncements.slice(offset, offset + limit),
-    pagination: {
-      total: mockAnnouncements.length,
-      limit,
-      offset,
-    },
+    data,
+    pagination: { total: count ?? 0, limit, offset },
     message: "OK",
   });
 }
 
-/**
- * POST /api/vendor/announcements
- * Create a new announcement.
- */
 export async function POST(request: NextRequest) {
   const authResult = await requireVendor(request);
-  if (authResult instanceof NextResponse) {
-    return authResult;
-  }
+  if (authResult instanceof NextResponse) return authResult;
+  const { vendor, supabase } = authResult;
 
-  const { vendor } = authResult;
-
-  let body: {
-    title?: string;
-    body?: string;
-    is_published?: boolean;
-    published_at?: string;
-  };
+  let body: { title?: string; detail_html?: string; announcement_type?: string; published_from?: string; published_until?: string; url?: string; image_url?: string };
   try {
     body = await request.json();
   } catch {
@@ -78,27 +74,47 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (!body.title || !body.body) {
+  if (!body.title || !body.detail_html) {
     return NextResponse.json(
-      { error: "Bad request", message: "title と body は必須です" },
+      { error: "Bad request", message: "title と detail_html は必須です" },
       { status: 400 }
     );
   }
 
-  // TODO: Replace with Supabase insert once schema is applied
-  const created = {
-    id: `ann_${Date.now()}`,
+  const now = new Date().toISOString();
+  const insertData = {
     vendor_id: vendor.id,
     title: body.title,
-    body: body.body,
-    is_published: body.is_published ?? false,
-    published_at: body.published_at ?? null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    detail_html: body.detail_html,
+    announcement_type: body.announcement_type ?? "info",
+    published_from: body.published_from ?? null,
+    published_until: body.published_until ?? null,
+    url: body.url ?? null,
+    image_url: body.image_url ?? null,
+    created_at: now,
+    updated_at: now,
   };
 
-  return NextResponse.json(
-    { data: created, message: "お知らせを作成しました" },
-    { status: 201 }
-  );
+  if (isSandboxMode()) {
+    sandboxLog("POST /api/vendor/announcements", `vendor=${vendor.id}`);
+    return NextResponse.json(
+      { data: { id: `ann_${Date.now()}`, ...insertData }, message: "お知らせを作成しました" },
+      { status: 201 }
+    );
+  }
+
+  const { data, error } = await supabase
+    .from("vendor_announcements")
+    .insert(insertData)
+    .select()
+    .single();
+
+  if (error) {
+    return NextResponse.json(
+      { error: "Database error", message: error.message },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({ data, message: "お知らせを作成しました" }, { status: 201 });
 }

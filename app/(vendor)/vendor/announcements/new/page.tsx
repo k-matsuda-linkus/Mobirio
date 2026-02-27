@@ -134,7 +134,27 @@ export default function VendorAnnouncementNewPage() {
         >
           戻る
         </button>
-        <button className="bg-accent text-white px-[24px] py-[8px] text-sm hover:bg-accent/90">
+        <button
+          onClick={() => {
+            fetch("/api/vendor/announcements", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                announcement_type: type,
+                title,
+                url: url || null,
+                image_url: titleImage.length > 0 ? titleImage[0] : null,
+                detail_html: detail,
+                published_from: publishStart || null,
+                published_until: publishEnd || null,
+              }),
+            })
+              .then((res) => (res.ok ? res.json() : Promise.reject("API error")))
+              .then(() => router.push("/vendor/announcements"))
+              .catch(() => alert("登録に失敗しました"));
+          }}
+          className="bg-accent text-white px-[24px] py-[8px] text-sm hover:bg-accent/90"
+        >
           登録
         </button>
       </div>

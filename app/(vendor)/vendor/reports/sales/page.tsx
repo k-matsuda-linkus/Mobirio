@@ -1,25 +1,58 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import VendorStatsCard from "@/components/vendor/VendorStatsCard";
 import { ReportChart } from "@/components/admin/ReportChart";
 
-const monthlySales = [
-  { label: "8月", value: 420000 },
-  { label: "9月", value: 380000 },
-  { label: "10月", value: 510000 },
-  { label: "11月", value: 340000 },
-  { label: "12月", value: 290000 },
-  { label: "1月", value: 450000 },
-];
-
-const salesTable = [
-  { month: "2025年1月", reservations: 28, revenue: 450000, avg: 16071 },
-  { month: "2024年12月", reservations: 22, revenue: 290000, avg: 13182 },
-  { month: "2024年11月", reservations: 25, revenue: 340000, avg: 13600 },
-  { month: "2024年10月", reservations: 32, revenue: 510000, avg: 15938 },
-  { month: "2024年9月", reservations: 26, revenue: 380000, avg: 14615 },
-  { month: "2024年8月", reservations: 30, revenue: 420000, avg: 14000 },
-];
+interface SalesData {
+  revenueByMonth: Array<{ month: string; revenue: number; count: number }>;
+  totalRevenue: number;
+  totalOrders: number;
+  avgOrderValue: number;
+  monthlyRevenue: number;
+}
 
 export default function SalesReportPage() {
+  const [data, setData] = useState<SalesData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/vendor/reports/sales")
+      .then((r) => r.ok ? r.json() : null)
+      .then((json) => {
+        if (json?.data) setData(json.data);
+      })
+      .catch((err) => console.error("sales report error:", err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const monthlySales = (data?.revenueByMonth || []).slice(-6).map((m) => {
+    const monthNum = parseInt(m.month.split("-")[1]);
+    return { label: `${monthNum}月`, value: m.revenue };
+  });
+
+  const salesTable = (data?.revenueByMonth || []).slice().reverse().map((m) => {
+    const [y, mo] = m.month.split("-");
+    return {
+      month: `${y}年${parseInt(mo)}月`,
+      reservations: m.count,
+      revenue: m.revenue,
+      avg: m.count > 0 ? Math.round(m.revenue / m.count) : 0,
+    };
+  });
+
+  const currentMonthRevenue = data?.monthlyRevenue || 0;
+  const avgOrder = data?.avgOrderValue || 0;
+
+  const prevMonthRevenue = (data?.revenueByMonth || []).length >= 2
+    ? data!.revenueByMonth[data!.revenueByMonth.length - 2].revenue
+    : 0;
+  const yoyPct = prevMonthRevenue > 0
+    ? Math.round(((currentMonthRevenue - prevMonthRevenue) / prevMonthRevenue) * 100 * 10) / 10
+    : 0;
+
+  if (loading) return <div className="p-[24px] text-sm text-gray-500">読み込み中...</div>;
+
   return (
     <div>
       <div className="mb-[24px]">
@@ -27,9 +60,9 @@ export default function SalesReportPage() {
         <h1 className="font-serif text-2xl font-light">売上レポート</h1>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-[16px] mb-[24px]">
-        <VendorStatsCard title="今月の売上" value="¥450,000" trend={{ value: 12.5, positive: true }} />
-        <VendorStatsCard title="予約単価" value="¥16,071" trend={{ value: 3.2, positive: true }} />
-        <VendorStatsCard title="前年同月比" value="+18.4%" trend={{ value: 18.4, positive: true }} />
+        <VendorStatsCard title="今月の売上" value={`¥${currentMonthRevenue.toLocaleString()}`} trend={yoyPct !== 0 ? { value: Math.abs(yoyPct), positive: yoyPct > 0 } : undefined} />
+        <VendorStatsCard title="予約単価" value={`¥${avgOrder.toLocaleString()}`} />
+        <VendorStatsCard title="前月比" value={`${yoyPct >= 0 ? "+" : ""}${yoyPct}%`} trend={yoyPct !== 0 ? { value: Math.abs(yoyPct), positive: yoyPct > 0 } : undefined} />
       </div>
       <div className="mb-[24px]">
         <ReportChart title="月別売上推移" data={monthlySales.map((s) => ({ label: s.label, value: s.value / 10000 }))} height={250} type="bar" />

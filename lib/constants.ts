@@ -17,7 +17,7 @@ export const REGIONS: Region[] = [
   { id: "shikoku", label: "四国", prefectures: ["徳島県", "香川県", "愛媛県", "高知県"] },
   { id: "kyushu", label: "九州・沖縄", prefectures: ["福岡県", "佐賀県", "長崎県", "熊本県", "大分県", "宮崎県", "鹿児島県", "沖縄県"] },
 ];
-export const ADMIN_NAV_ITEMS: NavItem[] = [{ href: "/dashboard", label: "ダッシュボード", icon: "LayoutDashboard" },{ href: "/dashboard/vendors", label: "ベンダー管理", icon: "Store" },{ href: "/dashboard/users", label: "ユーザー管理", icon: "Users" },{ href: "/dashboard/reservations", label: "全予約", icon: "CalendarDays" },{ href: "/dashboard/bikes", label: "全バイク", icon: "Bike" },{ href: "/dashboard/pricing", label: "料金表設定", icon: "JapaneseYen" },{ href: "/dashboard/payments", label: "決済管理", icon: "CreditCard" },{ href: "/dashboard/revenue", label: "売上計算", icon: "Calculator" },{ href: "/dashboard/reports", label: "レポート", icon: "BarChart3" },{ href: "/dashboard/insurance", label: "保険証明書", icon: "Shield" },{ href: "/dashboard/reviews", label: "レビュー管理", icon: "Star" },{ href: "/dashboard/inquiries", label: "お問い合わせ", icon: "MessageSquare" },{ href: "/dashboard/analytics", label: "アクセス解析", icon: "TrendingUp" },{ href: "/dashboard/notifications", label: "通知管理", icon: "Bell" },{ href: "/dashboard/settings", label: "システム設定", icon: "Settings" }];
+export const ADMIN_NAV_ITEMS: NavItem[] = [{ href: "/dashboard", label: "ダッシュボード", icon: "LayoutDashboard" },{ href: "/dashboard/vendors", label: "ベンダー管理", icon: "Store" },{ href: "/dashboard/users", label: "ユーザー管理", icon: "Users" },{ href: "/dashboard/reservations", label: "全予約", icon: "CalendarDays" },{ href: "/dashboard/bikes", label: "全バイク", icon: "Bike" },{ href: "/dashboard/pricing", label: "料金表設定", icon: "JapaneseYen" },{ href: "/dashboard/payments", label: "決済管理", icon: "CreditCard" },{ href: "/dashboard/revenue", label: "売上計算", icon: "Calculator" },{ href: "/dashboard/reports", label: "レポート", icon: "BarChart3" },{ href: "/dashboard/insurance", label: "保険証明書", icon: "Shield" },{ href: "/dashboard/inquiries", label: "お問い合わせ", icon: "MessageSquare" },{ href: "/dashboard/analytics", label: "アクセス解析", icon: "TrendingUp" },{ href: "/dashboard/notifications", label: "通知管理", icon: "Bell" },{ href: "/dashboard/settings", label: "システム設定", icon: "Settings" }];
 export const VENDOR_NAV_ITEMS: NavItem[] = [
   { href: "/vendor", label: "TOP", icon: "LayoutDashboard" },
   { href: "/vendor/business", label: "事業者情報", icon: "Building2" },
@@ -34,7 +34,7 @@ export const VENDOR_NAV_ITEMS: NavItem[] = [
   { href: "/vendor/gear", label: "ライダーズギア管理", icon: "HardHat" },
   { href: "#shop", label: "店舗管理", icon: "Store", children: [
     { href: "/vendor/shop", label: "店舗設定" },
-    { href: "/vendor/reviews", label: "店舗クチコミ一覧" },
+
   ]},
   { href: "/vendor/coupons", label: "クーポン管理", icon: "Ticket" },
   { href: "/vendor/announcements", label: "お知らせ一覧", icon: "Bell" },
@@ -132,7 +132,7 @@ export const USER_NAV_ITEMS: NavItem[] = [
   { href: "/mypage/reservations", label: "予約一覧", icon: "CalendarCheck" },
   { href: "/mypage/history", label: "利用履歴", icon: "Clock" },
   { href: "/mypage/favorites", label: "お気に入り", icon: "Heart" },
-  { href: "/mypage/reviews", label: "レビュー", icon: "Star" },
+
   { href: "/mypage/card", label: "カード管理", icon: "CreditCard" },
   { href: "/mypage/notifications", label: "通知", icon: "Bell" },
   { href: "/mypage/messages", label: "メッセージ", icon: "MessageSquare" },

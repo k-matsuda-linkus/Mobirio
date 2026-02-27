@@ -1,8 +1,20 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { StatusBadge } from "@/components/admin/StatusBadge";
-import { mockInquiries } from "@/lib/mock/inquiries";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, Loader2 } from "lucide-react";
+
+interface InquiryRow {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  subject: string;
+  content: string;
+  reply: string | null;
+  status: string;
+  created_at: string;
+  replied_at: string | null;
+}
 
 const sv = (s: string) => {
   if (s === "new") return "danger" as const;
@@ -19,14 +31,79 @@ const statusLabel = (s: string) => {
 };
 
 export default function InquiriesPage() {
+  const [inquiries, setInquiries] = useState<InquiryRow[]>([]);
+  const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
+  const [replyText, setReplyText] = useState("");
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const filtered = statusFilter
-    ? mockInquiries.filter((i) => i.status === statusFilter)
-    : mockInquiries;
+  const fetchInquiries = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      if (statusFilter) params.set("status", statusFilter);
+      const res = await fetch(`/api/admin/inquiries?${params.toString()}`);
+      const json = await res.json();
+      if (!res.ok) {
+        setError("問合せデータの取得に失敗しました");
+        setLoading(false);
+        return;
+      }
+      if (json.data) setInquiries(json.data);
+    } catch (error) {
+      console.error("Inquiries fetch error:", error);
+      setError("問合せデータの取得に失敗しました");
+    } finally {
+      setLoading(false);
+    }
+  }, [statusFilter]);
 
-  const newCount = mockInquiries.filter((i) => i.status === "new").length;
+  useEffect(() => {
+    fetchInquiries();
+  }, [fetchInquiries]);
+
+  const handleStatusUpdate = async (inquiryId: string, newStatus: string, reply?: string) => {
+    setActionLoading(inquiryId);
+    try {
+      const body: Record<string, string> = { inquiryId, status: newStatus };
+      if (reply) body.reply = reply;
+
+      const res = await fetch("/api/admin/inquiries", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json();
+      if (json.success) {
+        await fetchInquiries();
+        setReplyText("");
+      }
+    } catch (error) {
+      console.error("Inquiry update error:", error);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const newCount = inquiries.filter((i) => i.status === "new").length;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-[80px]">
+        <Loader2 className="w-[24px] h-[24px] animate-spin text-gray-400" />
+        <span className="ml-[8px] text-sm text-gray-500">読み込み中...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center py-[80px]">
+        <span className="text-sm text-red-500">{error}</span>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -65,7 +142,7 @@ export default function InquiriesPage() {
 
       {/* 一覧 */}
       <div className="space-y-[4px]">
-        {filtered.map((inq) => (
+        {inquiries.map((inq) => (
           <div key={inq.id} className="bg-white border border-gray-200">
             <div
               onClick={() => setExpanded(expanded === inq.id ? null : inq.id)}
@@ -77,9 +154,7 @@ export default function InquiriesPage() {
               </div>
               <div className="flex items-center gap-[12px]">
                 <span className="text-xs text-gray-400">{inq.name}</span>
-                <span className="text-xs text-gray-400">
-                  {inq.created_at.slice(0, 10)}
-                </span>
+                <span className="text-xs text-gray-400">{inq.created_at.slice(0, 10)}</span>
                 <span className="text-gray-400">{expanded === inq.id ? "▲" : "▼"}</span>
               </div>
             </div>
@@ -106,15 +181,38 @@ export default function InquiriesPage() {
                   </div>
                 )}
                 {!inq.reply && (
-                  <div className="flex gap-[8px]">
-                    <button className="bg-accent text-white px-[16px] py-[6px] text-sm font-sans hover:opacity-90">
-                      返信する
-                    </button>
-                    <select className="border border-gray-300 px-[12px] py-[6px] text-sm font-sans">
-                      <option value="new">未対応</option>
-                      <option value="in_progress">対応中</option>
-                      <option value="resolved">完了</option>
-                    </select>
+                  <div className="space-y-[8px]">
+                    <textarea
+                      value={expanded === inq.id ? replyText : ""}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      placeholder="返信内容を入力..."
+                      className="w-full border border-gray-200 px-[12px] py-[8px] text-sm focus:border-accent focus:outline-none min-h-[80px]"
+                    />
+                    <div className="flex gap-[8px]">
+                      <button
+                        onClick={() =>
+                          handleStatusUpdate(inq.id, "resolved", replyText || undefined)
+                        }
+                        disabled={actionLoading === inq.id}
+                        className="bg-accent text-white px-[16px] py-[6px] text-sm font-sans hover:opacity-90 disabled:opacity-50"
+                      >
+                        {replyText ? "返信して完了" : "完了にする"}
+                      </button>
+                      <select
+                        onChange={(e) => {
+                          if (e.target.value) handleStatusUpdate(inq.id, e.target.value);
+                        }}
+                        className="border border-gray-300 px-[12px] py-[6px] text-sm font-sans"
+                        defaultValue=""
+                      >
+                        <option value="" disabled>
+                          ステータス変更
+                        </option>
+                        <option value="in_progress">対応中</option>
+                        <option value="resolved">完了</option>
+                        <option value="closed">クローズ</option>
+                      </select>
+                    </div>
                   </div>
                 )}
               </div>

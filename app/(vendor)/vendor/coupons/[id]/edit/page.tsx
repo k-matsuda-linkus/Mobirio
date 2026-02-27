@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Trash2 } from "lucide-react";
@@ -46,6 +46,35 @@ export default function CouponEditPage() {
   const [validUntil, setValidUntil] = useState(MOCK_INITIAL.valid_until);
   const [isActive, setIsActive] = useState(MOCK_INITIAL.is_active);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [usageCountDisplay, setUsageCountDisplay] = useState(MOCK_INITIAL.usage_count);
+  const [usageLimitDisplay, setUsageLimitDisplay] = useState<number | null>(MOCK_INITIAL.usage_limit);
+
+  useEffect(() => {
+    fetch(`/api/vendor/coupons/${couponId}`)
+      .then((res) => (res.ok ? res.json() : Promise.reject("API error")))
+      .then((json) => {
+        const d = json.data;
+        if (d) {
+          setCode(d.code ?? "");
+          setName(d.name ?? "");
+          setDescription(d.description ?? "");
+          setDiscountType(d.discount_type ?? "fixed");
+          setDiscountValue(d.discount_value ?? "");
+          setMaxDiscount(d.max_discount ?? "");
+          setMinOrderAmount(d.min_order_amount ?? 0);
+          setUsageLimit(d.usage_limit ?? "");
+          setPerUserLimit(d.per_user_limit ?? 1);
+          setValidFrom(typeof d.valid_from === "string" ? d.valid_from.slice(0, 10) : "");
+          setValidUntil(typeof d.valid_until === "string" ? d.valid_until.slice(0, 10) : "");
+          setIsActive(d.is_active ?? true);
+          setUsageCountDisplay(d.usage_count ?? 0);
+          setUsageLimitDisplay(d.usage_limit ?? null);
+        }
+      })
+      .catch((err) => console.error(err))
+      .finally(() => setLoading(false));
+  }, [couponId]);
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -100,16 +129,26 @@ export default function CouponEditPage() {
       is_active: isActive,
     };
 
-    console.log("クーポン更新データ:", formData);
-    router.push("/vendor/coupons");
+    fetch(`/api/vendor/coupons/${couponId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData),
+    })
+      .then((res) => (res.ok ? res.json() : Promise.reject("API error")))
+      .then(() => router.push("/vendor/coupons"))
+      .catch(() => alert("更新に失敗しました"));
   };
 
   const handleDelete = () => {
     if (window.confirm("このクーポンを削除してもよろしいですか？この操作は取り消せません。")) {
-      console.log("クーポン削除:", couponId);
-      router.push("/vendor/coupons");
+      fetch(`/api/vendor/coupons/${couponId}`, { method: "DELETE" })
+        .then((res) => (res.ok ? res.json() : Promise.reject("API error")))
+        .then(() => router.push("/vendor/coupons"))
+        .catch(() => alert("削除に失敗しました"));
     }
   };
+
+  if (loading) return <div className="p-[24px]">読み込み中...</div>;
 
   return (
     <div>
@@ -237,15 +276,15 @@ export default function CouponEditPage() {
             <div>
               <span className="text-sm text-gray-500">利用回数</span>
               <p className="text-lg font-medium text-gray-800">
-                {MOCK_INITIAL.usage_count} / {MOCK_INITIAL.usage_limit ?? "∞"}回
+                {usageCountDisplay} / {usageLimitDisplay ?? "∞"}回
               </p>
             </div>
             <div className="flex-1 bg-gray-100 h-[8px]">
               <div
                 className="bg-accent h-full"
                 style={{
-                  width: MOCK_INITIAL.usage_limit
-                    ? `${Math.min((MOCK_INITIAL.usage_count / MOCK_INITIAL.usage_limit) * 100, 100)}%`
+                  width: usageLimitDisplay
+                    ? `${Math.min((usageCountDisplay / usageLimitDisplay) * 100, 100)}%`
                     : "0%",
                 }}
               />

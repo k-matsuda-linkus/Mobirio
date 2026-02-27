@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Plus, X } from "lucide-react";
 import { VendorPageHeader } from "@/components/vendor/VendorPageHeader";
@@ -20,6 +21,8 @@ const storeOptions = [
 ];
 
 export default function BikeNewPage() {
+  const router = useRouter();
+  const [saving, setSaving] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
   const [store, setStore] = useState("");
   const [vehicleName, setVehicleName] = useState("");
@@ -367,6 +370,8 @@ export default function BikeNewPage() {
             value={inspectionFile}
             onChange={setInspectionFile}
             label="ファイルをアップロード"
+            bucket="contracts"
+            pathPrefix="inspections"
           />
         </div>
 
@@ -424,6 +429,8 @@ export default function BikeNewPage() {
             onChange={setVehicleImages}
             label="画像をアップロード"
             maxFiles={10}
+            bucket="bike-images"
+            pathPrefix="new"
           />
           {vehicleImages.length > 0 && (
             <table className="w-full mt-[12px] text-sm">
@@ -556,10 +563,63 @@ export default function BikeNewPage() {
           </Link>
           <button
             type="button"
-            onClick={() => alert("登録しました")}
-            className="bg-accent text-white px-[32px] py-[10px] text-sm hover:bg-accent/90"
+            disabled={saving}
+            onClick={async () => {
+              if (!vehicleName || !maker) {
+                alert("車両名とメーカーは必須です");
+                return;
+              }
+              setSaving(true);
+              try {
+                const res = await fetch("/api/vendor/bikes", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    name: vehicleName,
+                    model: modelCode || vehicleName,
+                    manufacturer: maker,
+                    displacement: displacement ? Number(displacement) : null,
+                    model_code: modelCode || null,
+                    frame_number: chassisNumber || null,
+                    display_name: displayName || vehicleName,
+                    color: color || null,
+                    model_year: modelYear ? Number(modelYear) : null,
+                    first_registration: firstRegYear && firstRegMonth ? `${firstRegYear}-${firstRegMonth}` : null,
+                    inspection_expiry: inspectionExpiry || null,
+                    registration_number: regArea && regKana && regNumber ? `${regArea} ${regKana} ${regNumber}` : null,
+                    is_published: isPublished,
+                    equipment,
+                    is_long_term: longTermRental,
+                    image_urls: vehicleImages,
+                    youtube_url: youtubeUrl || null,
+                    notes_html: remarks || null,
+                    current_mileage: mileage ? Number(mileage) : 0,
+                    suspension_periods: suspensionPeriods,
+                    hourly_rate_2h: 0,
+                    hourly_rate_4h: 0,
+                    daily_rate_1day: 0,
+                    daily_rate_24h: 0,
+                    daily_rate_32h: 0,
+                    overtime_rate_per_hour: 0,
+                    additional_24h_rate: 0,
+                  }),
+                });
+                const json = await res.json();
+                if (res.ok) {
+                  alert("登録しました");
+                  router.push("/vendor/bikes");
+                } else {
+                  alert(json.message || "登録に失敗しました");
+                }
+              } catch {
+                alert("登録に失敗しました");
+              } finally {
+                setSaving(false);
+              }
+            }}
+            className="bg-accent text-white px-[32px] py-[10px] text-sm hover:bg-accent/90 disabled:opacity-50"
           >
-            登録
+            {saving ? "登録中..." : "登録"}
           </button>
         </div>
       </div>

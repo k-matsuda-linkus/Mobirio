@@ -1,59 +1,61 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireVendor } from "@/lib/auth/requireAuth";
+import { isSandboxMode, sandboxLog } from "@/lib/sandbox";
 
-/**
- * GET /api/vendor/inquiries/[id]
- * Get a single inquiry by ID.
- */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
   const authResult = await requireVendor(request);
-  if (authResult instanceof NextResponse) {
-    return authResult;
+  if (authResult instanceof NextResponse) return authResult;
+  const { vendor, supabase } = authResult;
+
+  if (isSandboxMode()) {
+    sandboxLog("GET /api/vendor/inquiries/[id]", `vendor=${vendor.id}, id=${id}`);
+    return NextResponse.json({
+      data: {
+        id, vendor_id: vendor.id, reservation_id: "res_001",
+        content: "返却時間を30分遅らせることは可能ですか？",
+        reply: null, status: "pending",
+        created_at: "2025-01-15T10:30:00Z", replied_at: null,
+        reservation: {
+          id: "res_001", start_datetime: "2025-01-20T09:00:00Z", end_datetime: "2025-01-21T18:00:00Z",
+        },
+      },
+      message: "OK",
+    });
   }
 
-  const { vendor } = authResult;
+  const { data, error } = await supabase
+    .from("vendor_inquiries")
+    .select("*, reservations(id, start_datetime, end_datetime, bike:bikes(id, name), user:users(id, full_name))")
+    .eq("id", id)
+    .eq("vendor_id", vendor.id)
+    .single();
 
-  // TODO: Replace with Supabase query once schema is applied
-  const mockInquiry = {
-    id,
-    vendor_id: vendor.id,
-    reservation_id: "res_001",
-    content: "返却時間を30分遅らせることは可能ですか？",
-    reply: null,
-    status: "pending",
-    created_at: "2025-01-15T10:30:00Z",
-    updated_at: "2025-01-15T10:30:00Z",
-    reservation: {
-      id: "res_001",
-      bike_name: "PCX 160",
-      user_name: "田中太郎",
-      start_datetime: "2025-01-20T09:00:00Z",
-      end_datetime: "2025-01-21T18:00:00Z",
-    },
-  };
+  if (error || !data) {
+    return NextResponse.json(
+      { error: "Not found", message: "問い合わせが見つかりません" },
+      { status: 404 }
+    );
+  }
 
-  return NextResponse.json({ data: mockInquiry, message: "OK" });
+  // Supabase JOIN結果のキー名 "reservations" を フロントエンドが期待する "reservation" (単数形) に変換
+  const raw = data as Record<string, unknown>;
+  const { reservations, ...rest } = raw;
+  const inquiry = { ...rest, reservation: reservations };
+  return NextResponse.json({ data: inquiry, message: "OK" });
 }
 
-/**
- * PUT /api/vendor/inquiries/[id]
- * Update an inquiry (vendor reply).
- */
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
   const authResult = await requireVendor(request);
-  if (authResult instanceof NextResponse) {
-    return authResult;
-  }
-
-  const { vendor } = authResult;
+  if (authResult instanceof NextResponse) return authResult;
+  const { vendor, supabase } = authResult;
 
   let body: { reply?: string; status?: string };
   try {
@@ -72,20 +74,42 @@ export async function PUT(
     );
   }
 
-  // TODO: Replace with Supabase update once schema is applied
-  const updated = {
-    id,
-    vendor_id: vendor.id,
-    reservation_id: "res_001",
-    content: "返却時間を30分遅らせることは可能ですか？",
-    reply: body.reply ?? null,
-    status: body.status ?? "replied",
-    created_at: "2025-01-15T10:30:00Z",
-    updated_at: new Date().toISOString(),
-  };
+  const updateData: Record<string, unknown> = {};
+  if (body.reply !== undefined) {
+    updateData.reply = body.reply;
+    updateData.replied_at = new Date().toISOString();
+  }
+  if (body.status !== undefined) updateData.status = body.status;
 
-  return NextResponse.json({
-    data: updated,
-    message: "問い合わせを更新しました",
-  });
+  if (isSandboxMode()) {
+    sandboxLog("PUT /api/vendor/inquiries/[id]", `vendor=${vendor.id}, id=${id}`);
+    return NextResponse.json({
+      data: {
+        id, vendor_id: vendor.id, reservation_id: "res_001",
+        content: "返却時間を30分遅らせることは可能ですか？",
+        reply: body.reply ?? null,
+        status: body.status ?? "replied",
+        created_at: "2025-01-15T10:30:00Z",
+        replied_at: body.reply !== undefined ? new Date().toISOString() : null,
+      },
+      message: "問い合わせを更新しました",
+    });
+  }
+
+  const { data, error } = await supabase
+    .from("vendor_inquiries")
+    .update(updateData)
+    .eq("id", id)
+    .eq("vendor_id", vendor.id)
+    .select()
+    .single();
+
+  if (error || !data) {
+    return NextResponse.json(
+      { error: "Not found", message: "問い合わせが見つかりません" },
+      { status: 404 }
+    );
+  }
+
+  return NextResponse.json({ data, message: "問い合わせを更新しました" });
 }

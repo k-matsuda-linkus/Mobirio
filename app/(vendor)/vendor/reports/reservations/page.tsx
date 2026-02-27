@@ -1,22 +1,8 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import VendorStatsCard from "@/components/vendor/VendorStatsCard";
 import { ReportChart } from "@/components/admin/ReportChart";
-
-const monthlyReservations = [
-  { label: "8月", value: 30 },
-  { label: "9月", value: 26 },
-  { label: "10月", value: 32 },
-  { label: "11月", value: 25 },
-  { label: "12月", value: 22 },
-  { label: "1月", value: 28 },
-];
-
-const statusBreakdown = [
-  { status: "完了", count: 18, pct: "64.3%" },
-  { status: "確認済", count: 5, pct: "17.9%" },
-  { status: "利用中", count: 2, pct: "7.1%" },
-  { status: "キャンセル", count: 2, pct: "7.1%" },
-  { status: "ノーショー", count: 1, pct: "3.6%" },
-];
 
 const statusColors: Record<string, string> = {
   "完了": "bg-gray-100 text-gray-600",
@@ -26,7 +12,90 @@ const statusColors: Record<string, string> = {
   "ノーショー": "bg-amber-50 text-amber-600",
 };
 
+interface ReservationReportAPI {
+  totalReservations: number;
+  confirmedCount: number;
+  pendingCount: number;
+  completedCount: number;
+  cancelledCount: number;
+  noShowCount: number;
+  inUseCount: number;
+  cancelRate: number;
+  reservationsByMonth: Array<{ month: string; count: number }>;
+}
+
+interface ReservationReport {
+  monthlyCounts: Array<{ month: string; count: number }>;
+  statusBreakdown: Array<{ status: string; count: number }>;
+  totalReservations: number;
+  cancelRate: number;
+  avgDuration: number;
+}
+
 export default function ReservationReportPage() {
+  const [data, setData] = useState<ReservationReport | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/vendor/reports/reservations")
+      .then((r) => r.ok ? r.json() : null)
+      .then((json) => {
+        if (json?.data) {
+          const api = json.data as ReservationReportAPI;
+          // APIレスポンスをフロントエンドの期待する構造にマッピング
+          const statusBreakdown: Array<{ status: string; count: number }> = [
+            { status: "confirmed", count: api.confirmedCount || 0 },
+            { status: "completed", count: api.completedCount || 0 },
+            { status: "in_use", count: api.inUseCount || 0 },
+            { status: "cancelled", count: api.cancelledCount || 0 },
+            { status: "no_show", count: api.noShowCount || 0 },
+          ].filter((s) => s.count > 0);
+
+          setData({
+            monthlyCounts: api.reservationsByMonth || [],
+            statusBreakdown,
+            totalReservations: api.totalReservations,
+            cancelRate: api.cancelRate,
+            avgDuration: 0, // APIが未提供のため0固定
+          });
+        }
+      })
+      .catch((err) => console.error("reservation report error:", err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const STATUS_LABEL_MAP: Record<string, string> = {
+    completed: "完了",
+    confirmed: "確認済",
+    in_use: "利用中",
+    cancelled: "キャンセル",
+    no_show: "ノーショー",
+  };
+
+  const monthlyReservations = (data?.monthlyCounts || []).slice(-6).map((m) => {
+    const monthNum = parseInt(m.month.split("-")[1]);
+    return { label: `${monthNum}月`, value: m.count };
+  });
+
+  const statusBreakdown = (data?.statusBreakdown || []).map((s) => {
+    const label = STATUS_LABEL_MAP[s.status] || s.status;
+    const total = data?.totalReservations || 1;
+    const pct = `${Math.round((s.count / total) * 1000) / 10}%`;
+    return { status: label, count: s.count, pct };
+  });
+
+  const currentMonthCount = (data?.monthlyCounts || []).length > 0
+    ? data!.monthlyCounts[data!.monthlyCounts.length - 1].count
+    : 0;
+  const prevMonthCount = (data?.monthlyCounts || []).length >= 2
+    ? data!.monthlyCounts[data!.monthlyCounts.length - 2].count
+    : 0;
+  const countTrend = prevMonthCount > 0
+    ? Math.round(((currentMonthCount - prevMonthCount) / prevMonthCount) * 1000) / 10
+    : 0;
+
+  if (loading) return <div className="p-[24px] text-sm text-gray-500">読み込み中...</div>;
+
   return (
     <div>
       <div className="mb-[24px]">
@@ -34,9 +103,9 @@ export default function ReservationReportPage() {
         <h1 className="font-serif text-2xl font-light">予約レポート</h1>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-[16px] mb-[24px]">
-        <VendorStatsCard title="今月の予約数" value="28" trend={{ value: 27.3, positive: true }} />
-        <VendorStatsCard title="キャンセル率" value="7.1%" trend={{ value: 2.1, positive: false }} />
-        <VendorStatsCard title="平均利用日数" value="2.3日" />
+        <VendorStatsCard title="今月の予約数" value={String(currentMonthCount)} trend={countTrend !== 0 ? { value: Math.abs(countTrend), positive: countTrend > 0 } : undefined} />
+        <VendorStatsCard title="キャンセル率" value={`${data?.cancelRate ?? 0}%`} />
+        <VendorStatsCard title="平均利用日数" value={`${data?.avgDuration ?? 0}日`} />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-[24px] mb-[24px]">
         <ReportChart title="月別予約数" data={monthlyReservations} height={220} type="bar" />

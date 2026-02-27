@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Download, TrendingUp, TrendingDown } from "lucide-react";
 import { VendorPageHeader } from "@/components/vendor/VendorPageHeader";
 import { StoreSelector } from "@/components/vendor/StoreSelector";
@@ -11,94 +11,23 @@ const STORES = [
   { id: "store-2", name: "宮崎空港店" },
 ];
 
+const MONTH_LABELS = ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"];
+
+interface PVDataRow {
+  label: string;
+  prevYear: number;
+  currentYear: number;
+  prevYearPc?: number;
+  prevYearSp?: number;
+  currentYearPc?: number;
+  currentYearSp?: number;
+}
+
 interface VehiclePV {
   vehicleName: string;
   registrationNo: string;
-  data: {
-    label: string;
-    prevYear: number;
-    currentYear: number;
-    prevYearPc?: number;
-    prevYearSp?: number;
-    currentYearPc?: number;
-    currentYearSp?: number;
-  }[];
+  data: PVDataRow[];
 }
-
-const MOCK_VEHICLE_PV: VehiclePV[] = [
-  {
-    vehicleName: "PCX160",
-    registrationNo: "宮崎 あ 12-34",
-    data: [
-      { label: "1月", prevYear: 45, currentYear: 62, prevYearPc: 30, prevYearSp: 15, currentYearPc: 38, currentYearSp: 24 },
-      { label: "2月", prevYear: 38, currentYear: 71, prevYearPc: 25, prevYearSp: 13, currentYearPc: 42, currentYearSp: 29 },
-      { label: "3月", prevYear: 72, currentYear: 88, prevYearPc: 45, prevYearSp: 27, currentYearPc: 52, currentYearSp: 36 },
-      { label: "4月", prevYear: 80, currentYear: 105, prevYearPc: 50, prevYearSp: 30, currentYearPc: 62, currentYearSp: 43 },
-      { label: "5月", prevYear: 95, currentYear: 112, prevYearPc: 60, prevYearSp: 35, currentYearPc: 68, currentYearSp: 44 },
-      { label: "6月", prevYear: 73, currentYear: 82, prevYearPc: 48, prevYearSp: 25, currentYearPc: 50, currentYearSp: 32 },
-      { label: "7月", prevYear: 105, currentYear: 130, prevYearPc: 65, prevYearSp: 40, currentYearPc: 78, currentYearSp: 52 },
-      { label: "8月", prevYear: 115, currentYear: 120, prevYearPc: 70, prevYearSp: 45, currentYearPc: 72, currentYearSp: 48 },
-      { label: "9月", prevYear: 88, currentYear: 98, prevYearPc: 55, prevYearSp: 33, currentYearPc: 60, currentYearSp: 38 },
-      { label: "10月", prevYear: 78, currentYear: 92, prevYearPc: 50, prevYearSp: 28, currentYearPc: 55, currentYearSp: 37 },
-      { label: "11月", prevYear: 62, currentYear: 75, prevYearPc: 40, prevYearSp: 22, currentYearPc: 45, currentYearSp: 30 },
-      { label: "12月", prevYear: 50, currentYear: 65, prevYearPc: 32, prevYearSp: 18, currentYearPc: 40, currentYearSp: 25 },
-    ],
-  },
-  {
-    vehicleName: "ADV150",
-    registrationNo: "宮崎 い 56-78",
-    data: [
-      { label: "1月", prevYear: 35, currentYear: 48, prevYearPc: 22, prevYearSp: 13, currentYearPc: 30, currentYearSp: 18 },
-      { label: "2月", prevYear: 30, currentYear: 55, prevYearPc: 20, prevYearSp: 10, currentYearPc: 35, currentYearSp: 20 },
-      { label: "3月", prevYear: 58, currentYear: 70, prevYearPc: 38, prevYearSp: 20, currentYearPc: 42, currentYearSp: 28 },
-      { label: "4月", prevYear: 65, currentYear: 85, prevYearPc: 42, prevYearSp: 23, currentYearPc: 52, currentYearSp: 33 },
-      { label: "5月", prevYear: 78, currentYear: 92, prevYearPc: 50, prevYearSp: 28, currentYearPc: 55, currentYearSp: 37 },
-      { label: "6月", prevYear: 60, currentYear: 68, prevYearPc: 40, prevYearSp: 20, currentYearPc: 42, currentYearSp: 26 },
-      { label: "7月", prevYear: 88, currentYear: 105, prevYearPc: 55, prevYearSp: 33, currentYearPc: 62, currentYearSp: 43 },
-      { label: "8月", prevYear: 95, currentYear: 98, prevYearPc: 58, prevYearSp: 37, currentYearPc: 60, currentYearSp: 38 },
-      { label: "9月", prevYear: 72, currentYear: 80, prevYearPc: 45, prevYearSp: 27, currentYearPc: 48, currentYearSp: 32 },
-      { label: "10月", prevYear: 62, currentYear: 75, prevYearPc: 40, prevYearSp: 22, currentYearPc: 45, currentYearSp: 30 },
-      { label: "11月", prevYear: 50, currentYear: 60, prevYearPc: 32, prevYearSp: 18, currentYearPc: 36, currentYearSp: 24 },
-      { label: "12月", prevYear: 40, currentYear: 52, prevYearPc: 26, prevYearSp: 14, currentYearPc: 32, currentYearSp: 20 },
-    ],
-  },
-  {
-    vehicleName: "CB250R",
-    registrationNo: "宮崎 う 90-12",
-    data: [
-      { label: "1月", prevYear: 50, currentYear: 58, prevYearPc: 35, prevYearSp: 15, currentYearPc: 38, currentYearSp: 20 },
-      { label: "2月", prevYear: 42, currentYear: 72, prevYearPc: 28, prevYearSp: 14, currentYearPc: 48, currentYearSp: 24 },
-      { label: "3月", prevYear: 78, currentYear: 95, prevYearPc: 52, prevYearSp: 26, currentYearPc: 60, currentYearSp: 35 },
-      { label: "4月", prevYear: 88, currentYear: 110, prevYearPc: 58, prevYearSp: 30, currentYearPc: 70, currentYearSp: 40 },
-      { label: "5月", prevYear: 102, currentYear: 118, prevYearPc: 68, prevYearSp: 34, currentYearPc: 72, currentYearSp: 46 },
-      { label: "6月", prevYear: 80, currentYear: 90, prevYearPc: 52, prevYearSp: 28, currentYearPc: 55, currentYearSp: 35 },
-      { label: "7月", prevYear: 112, currentYear: 135, prevYearPc: 72, prevYearSp: 40, currentYearPc: 82, currentYearSp: 53 },
-      { label: "8月", prevYear: 120, currentYear: 125, prevYearPc: 78, prevYearSp: 42, currentYearPc: 78, currentYearSp: 47 },
-      { label: "9月", prevYear: 92, currentYear: 100, prevYearPc: 60, prevYearSp: 32, currentYearPc: 62, currentYearSp: 38 },
-      { label: "10月", prevYear: 82, currentYear: 95, prevYearPc: 55, prevYearSp: 27, currentYearPc: 58, currentYearSp: 37 },
-      { label: "11月", prevYear: 68, currentYear: 78, prevYearPc: 45, prevYearSp: 23, currentYearPc: 48, currentYearSp: 30 },
-      { label: "12月", prevYear: 55, currentYear: 68, prevYearPc: 36, prevYearSp: 19, currentYearPc: 42, currentYearSp: 26 },
-    ],
-  },
-  {
-    vehicleName: "Rebel 250",
-    registrationNo: "宮崎 え 34-56",
-    data: [
-      { label: "1月", prevYear: 48, currentYear: 55, prevYearPc: 32, prevYearSp: 16, currentYearPc: 35, currentYearSp: 20 },
-      { label: "2月", prevYear: 40, currentYear: 65, prevYearPc: 26, prevYearSp: 14, currentYearPc: 40, currentYearSp: 25 },
-      { label: "3月", prevYear: 70, currentYear: 88, prevYearPc: 45, prevYearSp: 25, currentYearPc: 55, currentYearSp: 33 },
-      { label: "4月", prevYear: 82, currentYear: 100, prevYearPc: 55, prevYearSp: 27, currentYearPc: 62, currentYearSp: 38 },
-      { label: "5月", prevYear: 95, currentYear: 110, prevYearPc: 62, prevYearSp: 33, currentYearPc: 68, currentYearSp: 42 },
-      { label: "6月", prevYear: 75, currentYear: 85, prevYearPc: 48, prevYearSp: 27, currentYearPc: 52, currentYearSp: 33 },
-      { label: "7月", prevYear: 108, currentYear: 128, prevYearPc: 68, prevYearSp: 40, currentYearPc: 78, currentYearSp: 50 },
-      { label: "8月", prevYear: 118, currentYear: 122, prevYearPc: 75, prevYearSp: 43, currentYearPc: 75, currentYearSp: 47 },
-      { label: "9月", prevYear: 88, currentYear: 95, prevYearPc: 58, prevYearSp: 30, currentYearPc: 58, currentYearSp: 37 },
-      { label: "10月", prevYear: 78, currentYear: 90, prevYearPc: 50, prevYearSp: 28, currentYearPc: 55, currentYearSp: 35 },
-      { label: "11月", prevYear: 65, currentYear: 72, prevYearPc: 42, prevYearSp: 23, currentYearPc: 44, currentYearSp: 28 },
-      { label: "12月", prevYear: 52, currentYear: 62, prevYearPc: 34, prevYearSp: 18, currentYearPc: 38, currentYearSp: 24 },
-    ],
-  },
-];
 
 export default function VendorBikePVPage() {
   const [selectedStore, setSelectedStore] = useState("store-1");
@@ -106,6 +35,61 @@ export default function VendorBikePVPage() {
   const [analysisYear, setAnalysisYear] = useState("2026");
   const [analysisMonth, setAnalysisMonth] = useState("2");
   const [analysisDate, setAnalysisDate] = useState("2026-02-14");
+  const [vehiclePVData, setVehiclePVData] = useState<VehiclePV[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchData = useCallback(() => {
+    setLoading(true);
+    const currentYear = analysisYear;
+    const prevYear = String(parseInt(currentYear) - 1);
+
+    const params = new URLSearchParams({ year: currentYear, unit: analysisUnit });
+    if (analysisUnit === "day") {
+      params.set("month", analysisMonth);
+    }
+    const prevParams = new URLSearchParams({ year: prevYear, unit: analysisUnit });
+    if (analysisUnit === "day") {
+      prevParams.set("month", analysisMonth);
+    }
+
+    Promise.all([
+      fetch(`/api/vendor/analytics/bike-pv?${params}`).then((r) => r.ok ? r.json() : null),
+      fetch(`/api/vendor/analytics/bike-pv?${prevParams}`).then((r) => r.ok ? r.json() : null),
+    ])
+      .then(([curJson, prevJson]) => {
+        const curBikes: Array<{ bike_id: string; bike_name: string; registration_number?: string; periods: Array<{ label: string; pc: number; sp: number; total: number }> }> = curJson?.data || [];
+        const prevBikes: Array<{ bike_id: string; periods: Array<{ label: string; pc: number; sp: number; total: number }> }> = prevJson?.data || [];
+
+        const merged: VehiclePV[] = curBikes.map((curBike) => {
+          const prevBike = prevBikes.find((pb) => pb.bike_id === curBike.bike_id);
+          const rows: PVDataRow[] = curBike.periods.map((cur, i) => {
+            const prev = prevBike?.periods[i];
+            const labelDisplay = analysisUnit === "month" ? (MONTH_LABELS[i] || cur.label) : cur.label;
+            return {
+              label: labelDisplay,
+              currentYear: cur.total,
+              prevYear: prev?.total || 0,
+              currentYearPc: cur.pc,
+              currentYearSp: cur.sp,
+              prevYearPc: prev?.pc || 0,
+              prevYearSp: prev?.sp || 0,
+            };
+          });
+          return {
+            vehicleName: curBike.bike_name,
+            registrationNo: curBike.registration_number || "",
+            data: rows,
+          };
+        });
+        setVehiclePVData(merged);
+      })
+      .catch((err) => console.error("bike-pv fetch error:", err))
+      .finally(() => setLoading(false));
+  }, [analysisYear, analysisUnit, analysisMonth]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const inputClass =
     "border border-gray-300 px-[10px] py-[6px] text-sm focus:outline-none focus:border-accent";
@@ -205,39 +189,45 @@ export default function VendorBikePVPage() {
       </div>
 
       {/* 車両別チャート */}
-      <div className="space-y-[16px]">
-        {MOCK_VEHICLE_PV.map((vehicle) => {
-          const prevTotal = vehicle.data.reduce((s, d) => s + d.prevYear, 0);
-          const curTotal = vehicle.data.reduce((s, d) => s + d.currentYear, 0);
-          const ratio = prevTotal > 0 ? Math.round((curTotal / prevTotal) * 100) : 0;
+      {loading ? (
+        <div className="text-sm text-gray-500 py-[24px] text-center">読み込み中...</div>
+      ) : vehiclePVData.length === 0 ? (
+        <div className="text-sm text-gray-400 py-[24px] text-center">データがありません</div>
+      ) : (
+        <div className="space-y-[16px]">
+          {vehiclePVData.map((vehicle) => {
+            const prevTotal = vehicle.data.reduce((s, d) => s + d.prevYear, 0);
+            const curTotal = vehicle.data.reduce((s, d) => s + d.currentYear, 0);
+            const ratio = prevTotal > 0 ? Math.round((curTotal / prevTotal) * 100) : 0;
 
-          return (
-            <div key={vehicle.vehicleName}>
-              {/* 車両別サマリーKPI */}
-              <div className="flex items-center gap-[16px] text-sm mb-[12px]">
-                <span className="text-gray-400">前年</span>
-                <span className="font-medium">{prevTotal.toLocaleString()}</span>
-                <span className="text-gray-400">当年</span>
-                <span className="font-medium">{curTotal.toLocaleString()}</span>
-                <span className="flex items-center gap-[4px]">
-                  {ratio >= 100 ? (
-                    <TrendingUp className="w-[14px] h-[14px] text-accent" />
-                  ) : (
-                    <TrendingDown className="w-[14px] h-[14px] text-red-500" />
-                  )}
-                  <span className={ratio >= 100 ? "text-accent" : "text-red-500"}>{ratio}%</span>
-                </span>
+            return (
+              <div key={vehicle.vehicleName}>
+                {/* 車両別サマリーKPI */}
+                <div className="flex items-center gap-[16px] text-sm mb-[12px]">
+                  <span className="text-gray-400">前年</span>
+                  <span className="font-medium">{prevTotal.toLocaleString()}</span>
+                  <span className="text-gray-400">当年</span>
+                  <span className="font-medium">{curTotal.toLocaleString()}</span>
+                  <span className="flex items-center gap-[4px]">
+                    {ratio >= 100 ? (
+                      <TrendingUp className="w-[14px] h-[14px] text-accent" />
+                    ) : (
+                      <TrendingDown className="w-[14px] h-[14px] text-red-500" />
+                    )}
+                    <span className={ratio >= 100 ? "text-accent" : "text-red-500"}>{ratio}%</span>
+                  </span>
+                </div>
+                <AnalyticsChart
+                  data={vehicle.data}
+                  title={`${vehicle.vehicleName}${vehicle.registrationNo ? `（${vehicle.registrationNo}）` : ""}`}
+                  showDeviceBreakdown={true}
+                  valueLabel="閲覧数"
+                />
               </div>
-              <AnalyticsChart
-                data={vehicle.data}
-                title={`${vehicle.vehicleName}（${vehicle.registrationNo}）`}
-                showDeviceBreakdown={true}
-                valueLabel="閲覧数"
-              />
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

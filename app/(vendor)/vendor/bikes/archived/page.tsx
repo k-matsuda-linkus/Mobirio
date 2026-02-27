@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useState, useEffect } from "react";
 import { VendorPageHeader } from "@/components/vendor/VendorPageHeader";
 import { VendorDataTable, type VendorColumn } from "@/components/vendor/VendorDataTable";
 import { StatusBadge } from "@/components/vendor/StatusBadge";
@@ -23,50 +22,24 @@ interface ArchivedBike {
   totalRevenue: number;
 }
 
-const mockArchivedBikes: ArchivedBike[] = [
-  {
-    id: "a-001",
-    image: "/images/bikes/zx6r.jpg",
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function toArchivedBike(bike: any): ArchivedBike {
+  return {
+    id: bike.id,
+    image: bike.image_urls?.[0] ?? "",
     storeName: "宮崎本店",
-    vehicleName: "ZX-6R",
-    maker: "Kawasaki",
-    displacement: "636cc",
-    priceClass: "Sクラス",
-    regNumber: "宮崎 さ 1111",
-    archivedAt: "2025-11-15",
+    vehicleName: bike.name ?? "",
+    maker: bike.manufacturer ?? "",
+    displacement: bike.displacement ? `${bike.displacement}cc` : "",
+    priceClass: bike.vehicle_class ? `${bike.vehicle_class}クラス` : "",
+    regNumber: bike.registration_number ?? "",
+    archivedAt: bike.updated_at?.split("T")[0] ?? bike.updated_at?.split(" ")[0] ?? "",
     reason: "保険解約",
-    totalRentals: 48,
-    totalRevenue: 720000,
-  },
-  {
-    id: "a-002",
-    image: "/images/bikes/sv650.jpg",
-    storeName: "鹿児島支店",
-    vehicleName: "SV650",
-    maker: "Suzuki",
-    displacement: "650cc",
-    priceClass: "Aクラス",
-    regNumber: "鹿児島 し 2222",
-    archivedAt: "2025-09-20",
-    reason: "保険解約",
-    totalRentals: 35,
-    totalRevenue: 490000,
-  },
-  {
-    id: "a-003",
-    image: "/images/bikes/nmax155.jpg",
-    storeName: "宮崎本店",
-    vehicleName: "NMAX 155",
-    maker: "Yamaha",
-    displacement: "155cc",
-    priceClass: "Bクラス",
-    regNumber: "宮崎 す 3333",
-    archivedAt: "2025-06-01",
-    reason: "保険解約",
-    totalRentals: 62,
-    totalRevenue: 558000,
-  },
-];
+    totalRentals: 0,
+    totalRevenue: 0,
+  };
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 const columns: VendorColumn<ArchivedBike>[] = [
   {
@@ -120,6 +93,22 @@ const columns: VendorColumn<ArchivedBike>[] = [
 ];
 
 export default function ArchivedBikesPage() {
+  const [archivedBikes, setArchivedBikes] = useState<ArchivedBike[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/vendor/bikes?status=archived")
+      .then((res) => (res.ok ? res.json() : Promise.reject("API error")))
+      .then((json) => {
+        const rows = (json.data || []).map(toArchivedBike);
+        setArchivedBikes(rows);
+      })
+      .catch((err) => console.error("アーカイブ車両の取得に失敗:", err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="p-[24px]">読み込み中...</div>;
+
   return (
     <div>
       <VendorPageHeader
@@ -134,14 +123,14 @@ export default function ArchivedBikesPage() {
         保険解約により非公開になった車両の一覧です。統計データは保持されます。
       </div>
 
-      {mockArchivedBikes.length === 0 ? (
+      {archivedBikes.length === 0 ? (
         <EmptyState
           icon={Bike}
           title="アーカイブ車両はありません"
           description="保険解約等でアーカイブされた車両がここに表示されます。"
         />
       ) : (
-        <VendorDataTable columns={columns} data={mockArchivedBikes} pageSize={20} />
+        <VendorDataTable columns={columns} data={archivedBikes} pageSize={20} />
       )}
     </div>
   );

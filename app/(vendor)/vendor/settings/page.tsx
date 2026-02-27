@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const DAYS = ["月", "火", "水", "木", "金", "土", "日"];
 const inputCls = "w-full border border-gray-200 bg-white px-[12px] py-[10px] text-sm focus:border-accent focus:outline-none";
@@ -9,6 +9,31 @@ export default function VendorSettingsPage() {
   const [notifyEmail, setNotifyEmail] = useState(true);
   const [notifyNewBooking, setNotifyNewBooking] = useState(true);
   const [notifyCancellation, setNotifyCancellation] = useState(true);
+  const [shopName, setShopName] = useState("");
+  const [shopPhone, setShopPhone] = useState("");
+  const [shopEmail, setShopEmail] = useState("");
+  const [shopPostal, setShopPostal] = useState("");
+  const [shopAddress, setShopAddress] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/vendor/shop")
+      .then((res) => (res.ok ? res.json() : Promise.reject("API error")))
+      .then((json) => {
+        const d = json.data;
+        if (d) {
+          if (d.name) setShopName(d.name);
+          if (d.contact_phone) setShopPhone(d.contact_phone);
+          if (d.contact_email) setShopEmail(d.contact_email);
+          if (d.postal_code) setShopPostal(d.postal_code);
+          if (d.address) setShopAddress(d.address);
+        }
+      })
+      .catch((err) => console.error(err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="p-[24px]">読み込み中...</div>;
 
   return (
     <div>
@@ -17,11 +42,11 @@ export default function VendorSettingsPage() {
         <div className="bg-white border border-gray-100 p-[24px]">
           <h2 className="font-serif text-lg mb-[20px]">店舗基本情報</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-[16px]">
-            <div><label className={labelCls}>店舗名</label><input className={inputCls} defaultValue="湘南バイクス" /></div>
-            <div><label className={labelCls}>電話番号</label><input className={inputCls} defaultValue="0466-12-3456" /></div>
-            <div><label className={labelCls}>メールアドレス</label><input className={inputCls} defaultValue="info@shonan-bikes.example.com" /></div>
-            <div><label className={labelCls}>郵便番号</label><input className={inputCls} defaultValue="251-0035" /></div>
-            <div className="md:col-span-2"><label className={labelCls}>住所</label><input className={inputCls} defaultValue="神奈川県藤沢市片瀬海岸1-2-3" /></div>
+            <div><label className={labelCls}>店舗名</label><input className={inputCls} value={shopName} onChange={(e) => setShopName(e.target.value)} /></div>
+            <div><label className={labelCls}>電話番号</label><input className={inputCls} value={shopPhone} onChange={(e) => setShopPhone(e.target.value)} /></div>
+            <div><label className={labelCls}>メールアドレス</label><input className={inputCls} value={shopEmail} onChange={(e) => setShopEmail(e.target.value)} /></div>
+            <div><label className={labelCls}>郵便番号</label><input className={inputCls} value={shopPostal} onChange={(e) => setShopPostal(e.target.value)} /></div>
+            <div className="md:col-span-2"><label className={labelCls}>住所</label><input className={inputCls} value={shopAddress} onChange={(e) => setShopAddress(e.target.value)} /></div>
           </div>
         </div>
 
@@ -57,7 +82,25 @@ export default function VendorSettingsPage() {
           </div>
         </div>
 
-        <button className="bg-black px-[32px] py-[12px] text-sm font-medium text-white hover:bg-gray-800">設定を保存</button>
+        <button
+          onClick={() => {
+            fetch("/api/vendor/shop", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name: shopName,
+                contact_phone: shopPhone,
+                contact_email: shopEmail,
+                postal_code: shopPostal,
+                address: shopAddress,
+              }),
+            })
+              .then((res) => (res.ok ? res.json() : Promise.reject("API error")))
+              .then(() => alert("設定を保存しました"))
+              .catch(() => alert("保存に失敗しました"));
+          }}
+          className="bg-black px-[32px] py-[12px] text-sm font-medium text-white hover:bg-gray-800"
+        >設定を保存</button>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
@@ -16,6 +16,7 @@ const MOCK_INQUIRY = {
     "出発時間を30分早められますか？フライトの関係で早めに出発したいです。10:30には空港に到着予定ですので、その時間に合わせていただけると助かります。",
   status: "pending",
   reservationNo: "R-20250702-003",
+  reservationId: "res-002",
   storeName: "宮崎空港店",
   vehicleName: "ADV150",
   departureAt: "2025/07/15 11:00",
@@ -44,9 +45,54 @@ export default function VendorInquiryDetailPage() {
 
   const [status, setStatus] = useState(MOCK_INQUIRY.status);
   const [replyText, setReplyText] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [inquiryContent, setInquiryContent] = useState(MOCK_INQUIRY.content);
+  const [inquiryAt, setInquiryAt] = useState(MOCK_INQUIRY.inquiryAt);
+  const [customerName, setCustomerName] = useState(MOCK_INQUIRY.customerName);
+  const [memberNo, setMemberNo] = useState(MOCK_INQUIRY.memberNo);
+  const [reservationNo, setReservationNo] = useState(MOCK_INQUIRY.reservationNo);
+  const [reservationId, setReservationId] = useState(MOCK_INQUIRY.reservationId);
+  const [storeName, setStoreName] = useState(MOCK_INQUIRY.storeName);
+  const [vehicleName, setVehicleName] = useState(MOCK_INQUIRY.vehicleName);
+  const [departureAt, setDepartureAt] = useState(MOCK_INQUIRY.departureAt);
+  const [returnAt, setReturnAt] = useState(MOCK_INQUIRY.returnAt);
+
+  useEffect(() => {
+    fetch(`/api/vendor/inquiries/${inquiryId}`)
+      .then((res) => (res.ok ? res.json() : Promise.reject("API error")))
+      .then((json) => {
+        const d = json.data;
+        if (d) {
+          if (d.content) setInquiryContent(d.content);
+          if (d.status) setStatus(d.status);
+          if (d.reply) setReplyText(d.reply);
+          if (d.created_at) setInquiryAt(d.created_at.slice(0, 16).replace("T", " ").replace(/-/g, "/"));
+          // reservation JOIN結果
+          if (d.reservation) {
+            const r = d.reservation;
+            if (r.id) {
+              setReservationId(r.id);
+              setReservationNo(r.id);
+            }
+            if (r.start_datetime) {
+              setDepartureAt(r.start_datetime.slice(0, 16).replace("T", " ").replace(/-/g, "/"));
+            }
+            if (r.end_datetime) {
+              setReturnAt(r.end_datetime.slice(0, 16).replace("T", " ").replace(/-/g, "/"));
+            }
+            if (r.bike?.name) setVehicleName(r.bike.name);
+            if (r.user?.full_name) setCustomerName(r.user.full_name);
+          }
+        }
+      })
+      .catch((err) => console.error(err))
+      .finally(() => setLoading(false));
+  }, [inquiryId]);
 
   const inputClass =
     "border border-gray-300 px-[10px] py-[6px] text-sm w-full focus:outline-none focus:border-accent";
+
+  if (loading) return <div className="p-[24px]">読み込み中...</div>;
 
   return (
     <div>
@@ -74,21 +120,21 @@ export default function VendorInquiryDetailPage() {
           <div className="bg-white border border-gray-200 p-[20px]">
             <div className="flex items-center justify-between mb-[16px]">
               <h2 className="font-serif text-lg font-light">お問い合わせ内容</h2>
-              <StatusBadge status={MOCK_INQUIRY.status} />
+              <StatusBadge status={status} />
             </div>
             <div className="space-y-[10px] mb-[16px]">
               <div className="flex items-center gap-[16px] text-sm">
                 <span className="text-gray-400 w-[120px] shrink-0">お問い合わせ日時</span>
-                <span>{MOCK_INQUIRY.inquiryAt}</span>
+                <span>{inquiryAt}</span>
               </div>
               <div className="flex items-center gap-[16px] text-sm">
                 <span className="text-gray-400 w-[120px] shrink-0">お問い合わせ者</span>
-                <span>{MOCK_INQUIRY.customerName}（{MOCK_INQUIRY.memberNo}）</span>
+                <span>{customerName}{memberNo ? `（${memberNo}）` : ""}</span>
               </div>
             </div>
             <div className="bg-gray-50 border border-gray-200 p-[16px]">
               <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-                {MOCK_INQUIRY.content}
+                {inquiryContent}
               </p>
             </div>
           </div>
@@ -100,10 +146,10 @@ export default function VendorInquiryDetailPage() {
               {/* Original inquiry */}
               <div className="border-l-4 border-gray-300 pl-[12px]">
                 <div className="flex items-center gap-[8px] mb-[6px]">
-                  <span className="text-sm font-medium">{MOCK_INQUIRY.customerName}</span>
-                  <span className="text-xs text-gray-400">{MOCK_INQUIRY.inquiryAt}</span>
+                  <span className="text-sm font-medium">{customerName}</span>
+                  <span className="text-xs text-gray-400">{inquiryAt}</span>
                 </div>
-                <p className="text-sm text-gray-700">{MOCK_INQUIRY.content}</p>
+                <p className="text-sm text-gray-700">{inquiryContent}</p>
               </div>
 
               {/* Replies */}
@@ -171,7 +217,19 @@ export default function VendorInquiryDetailPage() {
             >
               戻る
             </button>
-            <button className="bg-accent text-white px-[24px] py-[10px] text-sm hover:bg-accent-dark">
+            <button
+              onClick={() => {
+                fetch(`/api/vendor/inquiries/${inquiryId}`, {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ reply: replyText, status }),
+                })
+                  .then((res) => (res.ok ? res.json() : Promise.reject("API error")))
+                  .then(() => alert("保存しました"))
+                  .catch(() => alert("保存に失敗しました"));
+              }}
+              className="bg-accent text-white px-[24px] py-[10px] text-sm hover:bg-accent-dark"
+            >
               登録
             </button>
           </div>
@@ -185,35 +243,35 @@ export default function VendorInquiryDetailPage() {
               <div>
                 <span className="block text-xs text-gray-400 mb-[2px]">予約番号</span>
                 <Link
-                  href={`/vendor/reservations/res-002`}
+                  href={`/vendor/reservations/${reservationId}`}
                   className="text-accent hover:underline font-mono text-sm"
                 >
-                  {MOCK_INQUIRY.reservationNo}
+                  {reservationNo}
                 </Link>
               </div>
               <div>
                 <span className="block text-xs text-gray-400 mb-[2px]">予約者氏名</span>
-                <p className="text-sm">{MOCK_INQUIRY.customerName}</p>
+                <p className="text-sm">{customerName}</p>
               </div>
               <div>
                 <span className="block text-xs text-gray-400 mb-[2px]">会員番号</span>
-                <p className="text-sm font-mono">{MOCK_INQUIRY.memberNo}</p>
+                <p className="text-sm font-mono">{memberNo}</p>
               </div>
               <div>
                 <span className="block text-xs text-gray-400 mb-[2px]">店舗</span>
-                <p className="text-sm">{MOCK_INQUIRY.storeName}</p>
+                <p className="text-sm">{storeName}</p>
               </div>
               <div>
                 <span className="block text-xs text-gray-400 mb-[2px]">予約車両</span>
-                <p className="text-sm">{MOCK_INQUIRY.vehicleName}</p>
+                <p className="text-sm">{vehicleName}</p>
               </div>
               <div>
                 <span className="block text-xs text-gray-400 mb-[2px]">出発日時</span>
-                <p className="text-sm">{MOCK_INQUIRY.departureAt}</p>
+                <p className="text-sm">{departureAt}</p>
               </div>
               <div>
                 <span className="block text-xs text-gray-400 mb-[2px]">返却日時</span>
-                <p className="text-sm">{MOCK_INQUIRY.returnAt}</p>
+                <p className="text-sm">{returnAt}</p>
               </div>
             </div>
           </div>

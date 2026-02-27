@@ -1,3 +1,17 @@
+import type { Metadata } from 'next';
+
+export const revalidate = 86400;
+
+export const metadata: Metadata = {
+  title: 'Mobirioについて',
+  description: 'Mobirioは宮崎県を中心としたレンタルバイクのマルチベンダープラットフォームです。EVスクーターから大型バイクまで幅広く取り揃え。',
+  openGraph: {
+    title: 'Mobirioについて | Mobirio',
+    description: 'Mobirioは宮崎県を中心としたレンタルバイクのマルチベンダープラットフォームです。',
+    url: 'https://mobirio.jp/about',
+  },
+};
+
 export default function AboutPage() {
   return (
     <div className="py-[50px] md:py-[100px]">

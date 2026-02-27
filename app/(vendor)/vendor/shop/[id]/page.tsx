@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Plus, X, Copy, ExternalLink } from "lucide-react";
@@ -77,9 +77,10 @@ const mockData = {
 export default function ShopDetailPage() {
   const params = useParams();
   const shopId = params.id as string;
+  const [loading, setLoading] = useState(true);
 
-  const [corpName] = useState(mockData.corpName);
-  const [branchNo] = useState(mockData.branchNo);
+  const [corpName, setCorpName] = useState(mockData.corpName);
+  const [branchNo, setBranchNo] = useState(mockData.branchNo);
   const [shopNameJa, setShopNameJa] = useState(mockData.shopNameJa);
   const [shopNameEn, setShopNameEn] = useState(mockData.shopNameEn);
   const [tradeNameJa, setTradeNameJa] = useState(mockData.tradeNameJa);
@@ -110,6 +111,8 @@ export default function ShopDetailPage() {
   const [insuranceCompany, setInsuranceCompany] = useState(mockData.insuranceCompany);
   const [insurancePhone, setInsurancePhone] = useState(mockData.insurancePhone);
   const [shopGuide, setShopGuide] = useState(mockData.shopGuide);
+  const [logoImage, setLogoImage] = useState<string[]>([]);
+  const [coverImage, setCoverImage] = useState<string[]>([]);
   const [shopImages, setShopImages] = useState(mockData.shopImages);
   const [youtubeUrl, setYoutubeUrl] = useState(mockData.youtubeUrl);
   const [paymentMethods, setPaymentMethods] = useState(mockData.paymentMethods);
@@ -118,7 +121,36 @@ export default function ShopDetailPage() {
   const [facebookUrl, setFacebookUrl] = useState(mockData.facebookUrl);
   const [googleBusinessUrl, setGoogleBusinessUrl] = useState(mockData.googleBusinessUrl);
   const [transferReportEmails, setTransferReportEmails] = useState(mockData.transferReportEmails);
-  const [contractPlan] = useState(mockData.contractPlan);
+  const [contractPlan, setContractPlan] = useState(mockData.contractPlan);
+
+  useEffect(() => {
+    fetch("/api/vendor/shop")
+      .then((res) => (res.ok ? res.json() : Promise.reject("API error")))
+      .then((json) => {
+        const d = json.data;
+        if (d) {
+          if (d.name) setShopNameJa(d.name);
+          if (d.slug) setShopNameEn(d.slug);
+          if (d.postal_code) setPostalCode(d.postal_code);
+          if (d.prefecture) setPrefecture(d.prefecture);
+          if (d.address) setAddress(d.address);
+          if (d.city) setDistrict(d.city);
+          if (d.contact_phone) setPhone(d.contact_phone);
+          if (d.contact_email) setEmail(d.contact_email);
+          if (d.description) setShopGuide(d.description);
+          if (d.logo_url) setLogoImage([d.logo_url]);
+          if (d.cover_image_url) setCoverImage([d.cover_image_url]);
+          if (d.plan) setContractPlan(d.plan === "small_moped" ? "特定小型原付プラン" : "レンタルバイクプラン");
+          if (d.business_id) setCorpName(d.business_id);
+          void setBranchNo;
+          void setTradeNameJa;
+          void setTradeNameEn;
+          void setRepresentative;
+        }
+      })
+      .catch((err) => console.error(err))
+      .finally(() => setLoading(false));
+  }, []);
 
   const dayLabels = ["日", "月", "火", "水", "木", "金", "土"];
 
@@ -146,6 +178,8 @@ export default function ShopDetailPage() {
   const labelClass = "block text-xs font-medium text-gray-500 mb-[4px]";
   const sectionClass = "bg-white border border-gray-200 p-[24px] space-y-[16px]";
   const sectionTitle = "text-base font-medium text-gray-800 pb-[8px] border-b border-gray-100 mb-[16px]";
+
+  if (loading) return <div className="p-[24px]">読み込み中...</div>;
 
   return (
     <div>
@@ -480,10 +514,40 @@ export default function ShopDetailPage() {
           <RichTextEditor value={shopGuide} onChange={setShopGuide} placeholder="店舗ご案内を入力してください..." />
         </div>
 
+        {/* ロゴ画像 */}
+        <div className={sectionClass}>
+          <h2 className={sectionTitle}>ロゴ画像</h2>
+          <FileUploader
+            accept="image/*"
+            value={logoImage}
+            onChange={setLogoImage}
+            label="ロゴ画像をアップロード"
+            maxFiles={1}
+            maxSizeMB={5}
+            bucket="vendor-logos"
+            pathPrefix={shopId}
+          />
+        </div>
+
+        {/* カバー画像 */}
+        <div className={sectionClass}>
+          <h2 className={sectionTitle}>カバー画像</h2>
+          <FileUploader
+            accept="image/*"
+            value={coverImage}
+            onChange={setCoverImage}
+            label="カバー画像をアップロード"
+            maxFiles={1}
+            maxSizeMB={10}
+            bucket="vendor-covers"
+            pathPrefix={shopId}
+          />
+        </div>
+
         {/* 店舗画像 */}
         <div className={sectionClass}>
           <h2 className={sectionTitle}>店舗画像</h2>
-          <FileUploader accept="image/*" multiple value={shopImages} onChange={setShopImages} label="画像をアップロード" maxFiles={10} />
+          <FileUploader accept="image/*" multiple value={shopImages} onChange={setShopImages} label="画像をアップロード" maxFiles={10} bucket="vendor-covers" pathPrefix={`${shopId}/gallery`} />
         </div>
 
         {/* YouTube動画URL */}
@@ -598,7 +662,28 @@ export default function ShopDetailPage() {
             </Link>
             <button
               type="button"
-              onClick={() => alert("保存しました")}
+              onClick={() => {
+                fetch("/api/vendor/shop", {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    name: shopNameJa,
+                    slug: shopNameEn,
+                    postal_code: postalCode,
+                    prefecture,
+                    address,
+                    city: district,
+                    contact_phone: phone,
+                    contact_email: email,
+                    description: shopGuide,
+                    logo_url: logoImage[0] || null,
+                    cover_image_url: coverImage[0] || null,
+                  }),
+                })
+                  .then((res) => (res.ok ? res.json() : Promise.reject("API error")))
+                  .then(() => alert("保存しました"))
+                  .catch(() => alert("保存に失敗しました"));
+              }}
               className="bg-accent text-white px-[32px] py-[10px] text-sm hover:bg-accent/90"
             >
               登録

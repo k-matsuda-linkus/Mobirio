@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireVendor } from "@/lib/auth/requireAuth";
+import { isSandboxMode, sandboxLog } from "@/lib/sandbox";
+import { mockReservations } from "@/lib/mock/reservations";
+import { mockUsers } from "@/lib/mock/users";
+import { mockBikes } from "@/lib/mock/bikes";
+import { mockVendors } from "@/lib/mock/vendors";
 import type { ReservationStatus } from "@/types/database";
 
 export async function GET(request: NextRequest) {
@@ -16,6 +21,46 @@ export async function GET(request: NextRequest) {
   const endDate = searchParams.get("endDate");
   const limit = parseInt(searchParams.get("limit") || "50");
   const offset = parseInt(searchParams.get("offset") || "0");
+
+  if (isSandboxMode()) {
+    sandboxLog("GET /api/vendor/reservations", `vendor=${vendor.id}`);
+    let filtered = mockReservations.filter((r) => r.vendor_id === vendor.id);
+    if (status) filtered = filtered.filter((r) => r.status === status);
+    if (startDate) filtered = filtered.filter((r) => r.start_datetime >= startDate);
+    if (endDate) filtered = filtered.filter((r) => r.end_datetime <= endDate);
+
+    const allVendor = mockReservations.filter((r) => r.vendor_id === vendor.id);
+    const summary = {
+      total: allVendor.length,
+      pending: allVendor.filter((r) => r.status === "pending").length,
+      confirmed: allVendor.filter((r) => r.status === "confirmed").length,
+      in_use: allVendor.filter((r) => r.status === "in_use").length,
+      completed: allVendor.filter((r) => r.status === "completed").length,
+      cancelled: allVendor.filter((r) => r.status === "cancelled").length,
+    };
+
+    const paged = filtered.slice(offset, offset + limit);
+    // FEが期待するフラットフィールドを付与
+    const enriched = paged.map((r) => {
+      const user = mockUsers.find((u) => u.id === r.user_id);
+      const bike = mockBikes.find((b) => b.id === r.bike_id);
+      const vendorData = mockVendors.find((v) => v.id === r.vendor_id);
+      return {
+        ...r,
+        bike_name: r.bikeName || bike?.name || "",
+        user_name: user?.full_name || "",
+        store_name: r.vendorName || vendorData?.name || "",
+        registration_number: bike?.registration_number || "",
+        chassis_number: bike?.frame_number || "",
+      };
+    });
+    return NextResponse.json({
+      data: enriched,
+      summary,
+      pagination: { total: filtered.length, limit, offset },
+      message: "OK",
+    });
+  }
 
   let query = supabase
     .from("reservations")
@@ -68,8 +113,21 @@ export async function GET(request: NextRequest) {
     cancelled: statusCounts.filter((r) => r.status === "cancelled").length,
   };
 
+  // JOINネスト結果をフラット化（FEが bike_name, user_name 等を期待）
+  const flatData = (data || []).map((row: any) => {
+    const { bike, user, ...rest } = row;
+    return {
+      ...rest,
+      bike_name: bike?.name || "",
+      user_name: user?.full_name || "",
+      store_name: vendor.name || "",
+      registration_number: bike?.registration_number || "",
+      chassis_number: bike?.frame_number || "",
+    };
+  });
+
   return NextResponse.json({
-    data,
+    data: flatData,
     summary,
     pagination: {
       total: count || data?.length || 0,

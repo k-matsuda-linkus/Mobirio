@@ -1,41 +1,145 @@
+"use client";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { Badge } from "@/components/ui/Badge";
 import { AdminPageLayout } from "@/components/admin/AdminPageLayout";
-import { mockVendors, VENDOR_PLANS } from "@/lib/mock/vendors";
-import { mockBikes } from "@/lib/mock/bikes";
-import { mockReservations, PAYMENT_TYPE_LABELS } from "@/lib/mock/reservations";
-import type { PaymentType } from "@/lib/mock/reservations";
-import { mockPayments } from "@/lib/mock/payments";
+import { Loader2 } from "lucide-react";
 
-export default async function AdminVendorDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  const vendor = mockVendors.find((v) => v.id === id) || mockVendors[0];
-  const vendorBikes = mockBikes.filter((b) => b.vendor_id === vendor.id);
-  const vendorRes = mockReservations.filter((r) => r.vendor_id === vendor.id);
-  const revenue = vendorRes
-    .filter((r) => r.status !== "cancelled")
-    .reduce((sum, r) => sum + r.total_amount, 0);
-  const completedCount = vendorRes.filter((r) => r.status === "completed").length;
-  const vendorPayments = mockPayments.filter((p) => p.vendor_id === vendor.id);
-  const ecAmount = vendorPayments
-    .filter((p) => p.payment_type === "ec_credit" && p.status === "completed")
-    .reduce((sum, p) => sum + p.amount, 0);
-  const onsiteAmount = vendorPayments
-    .filter(
-      (p) =>
-        (p.payment_type === "onsite_cash" || p.payment_type === "onsite_credit") &&
-        p.status === "completed"
-    )
-    .reduce((sum, p) => sum + p.amount, 0);
+interface VendorDetail {
+  id: string;
+  name: string;
+  slug: string;
+  prefecture?: string | null;
+  city?: string | null;
+  address?: string | null;
+  contact_email?: string | null;
+  contact_phone?: string | null;
+  commission_rate: number;
+  is_approved: boolean;
+  is_active: boolean;
+}
 
-  const paymentBadgeStyle: Record<PaymentType, string> = {
-    ec_credit: "text-blue-600 bg-blue-50",
-    onsite_cash: "text-green-600 bg-green-50",
-    onsite_credit: "text-purple-600 bg-purple-50",
+interface VendorStats {
+  total_revenue: number;
+  ec_amount: number;
+  onsite_amount: number;
+  total_reservations: number;
+  completed_reservations: number;
+  bikes_count: number;
+}
+
+interface BikeRow {
+  id: string;
+  name: string;
+  manufacturer: string;
+  displacement?: number | null;
+  daily_rate_1day: number;
+  is_available: boolean;
+}
+
+interface ReservationRow {
+  id: string;
+  status: string;
+  total_amount: number;
+  start_datetime: string;
+  end_datetime: string;
+  user?: { full_name?: string } | null;
+  bike?: { name?: string } | null;
+}
+
+export default function AdminVendorDetailPage() {
+  const params = useParams();
+  const id = params.id as string;
+
+  const [vendor, setVendor] = useState<VendorDetail | null>(null);
+  const [stats, setStats] = useState<VendorStats | null>(null);
+  const [bikes, setBikes] = useState<BikeRow[]>([]);
+  const [reservations, setReservations] = useState<ReservationRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const res = await fetch(`/api/admin/vendors/${id}`);
+        if (!res.ok) {
+          setError("ベンダー情報の取得に失敗しました");
+          setLoading(false);
+          return;
+        }
+        const json = await res.json();
+        if (json.data) {
+          setVendor(json.data.vendor);
+          setStats(json.data.stats);
+          setBikes(json.data.bikes || []);
+          setReservations(json.data.reservations || []);
+        }
+      } catch (error) {
+        console.error("Vendor detail fetch error:", error);
+        setError("ベンダー情報の取得に失敗しました");
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, [id]);
+
+  const handleAction = async (action: "approve" | "ban" | "activate") => {
+    if (!vendor) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch("/api/admin/vendors", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vendorId: vendor.id, action }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        // ページ再取得
+        const detailRes = await fetch(`/api/admin/vendors/${id}`);
+        const detailJson = await detailRes.json();
+        if (detailJson.data) {
+          setVendor(detailJson.data.vendor);
+          setStats(detailJson.data.stats);
+        }
+      }
+    } catch (error) {
+      console.error("Vendor action error:", error);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-[80px]">
+        <Loader2 className="w-[24px] h-[24px] animate-spin text-gray-400" />
+        <span className="ml-[8px] text-sm text-gray-500">読み込み中...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center py-[80px]">
+        <span className="text-sm text-red-500">{error}</span>
+      </div>
+    );
+  }
+
+  if (!vendor) {
+    return <div className="py-[40px] text-center text-gray-500">ベンダーが見つかりません</div>;
+  }
+
+  const statusLabel = (s: string) => {
+    if (s === "confirmed") return "確認済";
+    if (s === "completed") return "完了";
+    if (s === "pending") return "予約済";
+    if (s === "in_use") return "利用中";
+    if (s === "cancelled") return "キャンセル";
+    return "ノーショー";
   };
 
   return (
@@ -45,36 +149,46 @@ export default async function AdminVendorDetailPage({
       actions={
         <div className="flex gap-[8px]">
           {!vendor.is_approved ? (
-            <button className="px-[20px] py-[10px] bg-accent text-white text-sm hover:opacity-90">
+            <button
+              onClick={() => handleAction("approve")}
+              disabled={actionLoading}
+              className="px-[20px] py-[10px] bg-accent text-white text-sm hover:opacity-90 disabled:opacity-50"
+            >
               承認する
             </button>
           ) : (
-            <button className="px-[20px] py-[10px] bg-accent text-white text-sm hover:opacity-90">
-              編集
-            </button>
+            <Link href={`/dashboard/vendors`} className="px-[20px] py-[10px] border border-gray-300 text-sm hover:bg-gray-50">
+              一覧に戻る
+            </Link>
           )}
-          <button className="px-[20px] py-[10px] border border-red-500 text-red-500 text-sm hover:bg-red-50">
+          <button
+            onClick={() => handleAction(vendor.is_active ? "ban" : "activate")}
+            disabled={actionLoading}
+            className="px-[20px] py-[10px] border border-red-500 text-red-500 text-sm hover:bg-red-50 disabled:opacity-50"
+          >
             {vendor.is_active ? "停止する" : "再開する"}
           </button>
         </div>
       }
     >
       {/* 統計カード */}
-      <div className="grid md:grid-cols-3 gap-[16px] mb-[40px]">
-        {[
-          { title: "月間売上", value: `¥${revenue.toLocaleString()}` },
-          { title: "予約数", value: String(vendorRes.length) },
-          { title: "完了予約", value: String(completedCount) },
-          { title: "バイク数", value: String(vendorBikes.length) },
-          { title: "EC決済額", value: `¥${ecAmount.toLocaleString()}` },
-          { title: "現地決済額", value: `¥${onsiteAmount.toLocaleString()}` },
-        ].map((s) => (
-          <div key={s.title} className="border border-gray-100 bg-white p-[24px]">
-            <p className="text-xs text-gray-400">{s.title}</p>
-            <p className="text-2xl font-light mt-[4px]">{s.value}</p>
-          </div>
-        ))}
-      </div>
+      {stats && (
+        <div className="grid md:grid-cols-3 gap-[16px] mb-[40px]">
+          {[
+            { title: "月間売上", value: `¥${stats.total_revenue.toLocaleString()}` },
+            { title: "予約数", value: String(stats.total_reservations) },
+            { title: "完了予約", value: String(stats.completed_reservations) },
+            { title: "バイク数", value: String(stats.bikes_count) },
+            { title: "EC決済額", value: `¥${stats.ec_amount.toLocaleString()}` },
+            { title: "現地決済額", value: `¥${stats.onsite_amount.toLocaleString()}` },
+          ].map((s) => (
+            <div key={s.title} className="border border-gray-100 bg-white p-[24px]">
+              <p className="text-xs text-gray-400">{s.title}</p>
+              <p className="text-2xl font-light mt-[4px]">{s.value}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* 基本情報 */}
       <div className="bg-white border border-gray-100 p-[24px] mb-[30px]">
@@ -82,17 +196,13 @@ export default async function AdminVendorDetailPage({
         <div className="space-y-[12px]">
           {[
             ["店舗名", vendor.name],
-            ["エリア", `${vendor.prefecture} ${vendor.city}`],
+            ["エリア", `${vendor.prefecture || ""} ${vendor.city || ""}`.trim()],
             ["住所", vendor.address],
             ["メール", vendor.contact_email],
             ["電話", vendor.contact_phone],
-            ["契約プラン", VENDOR_PLANS[vendor.plan].label],
             ["手数料率", `${(vendor.commission_rate * 100).toFixed(0)}%`],
           ].map(([label, value]) => (
-            <div
-              key={String(label)}
-              className="flex justify-between py-[10px] border-b border-gray-50 text-sm"
-            >
+            <div key={String(label)} className="flex justify-between py-[10px] border-b border-gray-50 text-sm">
               <span className="text-gray-500">{label}</span>
               <span>{String(value || "-")}</span>
             </div>
@@ -106,56 +216,12 @@ export default async function AdminVendorDetailPage({
         </div>
       </div>
 
-      {/* プラン・手数料設定 */}
-      <div className="bg-white border border-gray-100 p-[24px] mb-[30px]">
-        <h2 className="font-serif font-light text-lg mb-[16px]">プラン・手数料設定</h2>
-        <div className="grid md:grid-cols-2 gap-[16px]">
-          {(Object.entries(VENDOR_PLANS) as [string, { label: string; commissionRate: number }][]).map(
-            ([key, plan]) => {
-              const isActive = vendor.plan === key;
-              return (
-                <div
-                  key={key}
-                  className={
-                    "border p-[20px] cursor-pointer transition-colors " +
-                    (isActive
-                      ? "border-accent bg-accent/5"
-                      : "border-gray-200 hover:border-gray-400")
-                  }
-                >
-                  <div className="flex items-center justify-between mb-[8px]">
-                    <span className="text-sm font-medium">{plan.label}</span>
-                    {isActive && (
-                      <span className="text-xs bg-accent text-white px-[8px] py-[2px]">
-                        適用中
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-2xl font-light">
-                    {(plan.commissionRate * 100).toFixed(0)}
-                    <span className="text-sm text-gray-500 ml-[2px]">%</span>
-                  </p>
-                  <p className="text-xs text-gray-400 mt-[4px]">
-                    売上に対するロイヤリティ率
-                  </p>
-                  {!isActive && (
-                    <button className="mt-[12px] text-sm text-accent hover:underline">
-                      このプランに変更
-                    </button>
-                  )}
-                </div>
-              );
-            }
-          )}
-        </div>
-      </div>
-
       {/* バイク一覧 */}
       <div className="bg-white border border-gray-100 p-[24px] mb-[30px]">
         <h2 className="font-serif font-light text-lg mb-[16px]">
-          登録バイク ({vendorBikes.length}台)
+          登録バイク ({bikes.length}台)
         </h2>
-        {vendorBikes.length > 0 ? (
+        {bikes.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -168,16 +234,14 @@ export default async function AdminVendorDetailPage({
                 </tr>
               </thead>
               <tbody>
-                {vendorBikes.map((bike) => (
+                {bikes.map((bike) => (
                   <tr key={bike.id} className="border-b border-gray-50">
                     <td className="py-[10px] font-medium">{bike.name}</td>
                     <td className="py-[10px] text-gray-500">{bike.manufacturer}</td>
                     <td className="py-[10px] text-gray-500">
                       {bike.displacement ? `${bike.displacement}cc` : "EV"}
                     </td>
-                    <td className="py-[10px]">
-                      ¥{bike.daily_rate_1day.toLocaleString()}
-                    </td>
+                    <td className="py-[10px]">¥{bike.daily_rate_1day.toLocaleString()}</td>
                     <td className="py-[10px]">
                       <Badge variant={bike.is_available ? "confirmed" : "cancelled"}>
                         {bike.is_available ? "稼働中" : "停止中"}
@@ -196,9 +260,9 @@ export default async function AdminVendorDetailPage({
       {/* 予約一覧 */}
       <div className="bg-white border border-gray-100 p-[24px]">
         <h2 className="font-serif font-light text-lg mb-[16px]">
-          予約履歴 ({vendorRes.length}件)
+          予約履歴 ({reservations.length}件)
         </h2>
-        {vendorRes.length > 0 ? (
+        {reservations.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -208,18 +272,13 @@ export default async function AdminVendorDetailPage({
                   <th className="py-[10px]">期間</th>
                   <th className="py-[10px]">金額</th>
                   <th className="py-[10px]">ステータス</th>
-                  <th className="py-[10px]">決済方法</th>
                 </tr>
               </thead>
               <tbody>
-                {vendorRes.map((res) => (
+                {reservations.map((res) => (
                   <tr key={res.id} className="border-b border-gray-50">
-                    <td className="py-[10px]">
-                      <Link href={`/dashboard/reservations`} className="text-accent hover:underline">
-                        {res.id}
-                      </Link>
-                    </td>
-                    <td className="py-[10px]">{res.bikeName}</td>
+                    <td className="py-[10px]">{res.id.slice(0, 8)}</td>
+                    <td className="py-[10px]">{res.bike?.name || "—"}</td>
                     <td className="py-[10px] text-gray-500">
                       {res.start_datetime.slice(0, 10)} ~ {res.end_datetime.slice(0, 10)}
                     </td>
@@ -234,30 +293,8 @@ export default async function AdminVendorDetailPage({
                             : "pending"
                         }
                       >
-                        {res.status === "confirmed"
-                          ? "確認済"
-                          : res.status === "completed"
-                          ? "完了"
-                          : res.status === "pending"
-                          ? "予約済"
-                          : res.status === "in_use"
-                          ? "利用中"
-                          : res.status === "cancelled"
-                          ? "キャンセル"
-                          : "ノーショー"}
+                        {statusLabel(res.status)}
                       </Badge>
-                    </td>
-                    <td className="py-[10px]">
-                      <div className="flex items-center gap-[4px]">
-                        {res.payment_types.map((pt) => (
-                          <span
-                            key={pt}
-                            className={`text-xs px-[6px] py-[1px] ${paymentBadgeStyle[pt]}`}
-                          >
-                            {PAYMENT_TYPE_LABELS[pt]}
-                          </span>
-                        ))}
-                      </div>
                     </td>
                   </tr>
                 ))}

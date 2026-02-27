@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Download, TrendingUp, TrendingDown } from "lucide-react";
 import { VendorPageHeader } from "@/components/vendor/VendorPageHeader";
 import { StoreSelector } from "@/components/vendor/StoreSelector";
@@ -11,20 +11,17 @@ const STORES = [
   { id: "store-2", name: "宮崎空港店" },
 ];
 
-const MOCK_PV_DATA = [
-  { label: "1月", prevYear: 180, currentYear: 220, prevYearPc: 120, prevYearSp: 60, currentYearPc: 140, currentYearSp: 80 },
-  { label: "2月", prevYear: 150, currentYear: 280, prevYearPc: 100, prevYearSp: 50, currentYearPc: 170, currentYearSp: 110 },
-  { label: "3月", prevYear: 280, currentYear: 350, prevYearPc: 180, prevYearSp: 100, currentYearPc: 210, currentYearSp: 140 },
-  { label: "4月", prevYear: 320, currentYear: 410, prevYearPc: 200, prevYearSp: 120, currentYearPc: 250, currentYearSp: 160 },
-  { label: "5月", prevYear: 380, currentYear: 450, prevYearPc: 240, prevYearSp: 140, currentYearPc: 270, currentYearSp: 180 },
-  { label: "6月", prevYear: 290, currentYear: 330, prevYearPc: 190, prevYearSp: 100, currentYearPc: 200, currentYearSp: 130 },
-  { label: "7月", prevYear: 420, currentYear: 500, prevYearPc: 260, prevYearSp: 160, currentYearPc: 300, currentYearSp: 200 },
-  { label: "8月", prevYear: 460, currentYear: 480, prevYearPc: 280, prevYearSp: 180, currentYearPc: 290, currentYearSp: 190 },
-  { label: "9月", prevYear: 350, currentYear: 390, prevYearPc: 220, prevYearSp: 130, currentYearPc: 240, currentYearSp: 150 },
-  { label: "10月", prevYear: 310, currentYear: 370, prevYearPc: 200, prevYearSp: 110, currentYearPc: 220, currentYearSp: 150 },
-  { label: "11月", prevYear: 250, currentYear: 300, prevYearPc: 160, prevYearSp: 90, currentYearPc: 180, currentYearSp: 120 },
-  { label: "12月", prevYear: 200, currentYear: 260, prevYearPc: 130, prevYearSp: 70, currentYearPc: 160, currentYearSp: 100 },
-];
+const MONTH_LABELS = ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"];
+
+interface PVDataRow {
+  label: string;
+  prevYear: number;
+  currentYear: number;
+  prevYearPc?: number;
+  prevYearSp?: number;
+  currentYearPc?: number;
+  currentYearSp?: number;
+}
 
 export default function VendorShopPVPage() {
   const [selectedStore, setSelectedStore] = useState("store-1");
@@ -33,12 +30,62 @@ export default function VendorShopPVPage() {
   const [analysisYear, setAnalysisYear] = useState("2026");
   const [analysisMonth, setAnalysisMonth] = useState("2");
   const [analysisDate, setAnalysisDate] = useState("2026-02-14");
+  const [pvData, setPvData] = useState<PVDataRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchData = useCallback(() => {
+    setLoading(true);
+    const currentYear = analysisYear;
+    const prevYear = String(parseInt(currentYear) - 1);
+
+    const params = new URLSearchParams({ year: currentYear, unit: analysisUnit });
+    if (analysisUnit === "day") {
+      params.set("month", analysisMonth);
+    }
+
+    const prevParams = new URLSearchParams({ year: prevYear, unit: analysisUnit });
+    if (analysisUnit === "day") {
+      prevParams.set("month", analysisMonth);
+    }
+
+    Promise.all([
+      fetch(`/api/vendor/analytics/shop-pv?${params}`).then((r) => r.ok ? r.json() : null),
+      fetch(`/api/vendor/analytics/shop-pv?${prevParams}`).then((r) => r.ok ? r.json() : null),
+    ])
+      .then(([curJson, prevJson]) => {
+        const curData: Array<{ label: string; pc: number; sp: number; total: number }> = curJson?.data || [];
+        const prevData: Array<{ label: string; pc: number; sp: number; total: number }> = prevJson?.data || [];
+
+        const merged: PVDataRow[] = curData.map((cur, i) => {
+          const prev = prevData[i];
+          const labelDisplay = analysisUnit === "month"
+            ? MONTH_LABELS[i] || cur.label
+            : cur.label;
+          return {
+            label: labelDisplay,
+            currentYear: cur.total,
+            prevYear: prev?.total || 0,
+            currentYearPc: cur.pc,
+            currentYearSp: cur.sp,
+            prevYearPc: prev?.pc || 0,
+            prevYearSp: prev?.sp || 0,
+          };
+        });
+        setPvData(merged);
+      })
+      .catch((err) => console.error("shop-pv fetch error:", err))
+      .finally(() => setLoading(false));
+  }, [analysisYear, analysisUnit, analysisMonth]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const inputClass =
     "border border-gray-300 px-[10px] py-[6px] text-sm focus:outline-none focus:border-accent";
 
-  const totalPrevYear = MOCK_PV_DATA.reduce((s, d) => s + d.prevYear, 0);
-  const totalCurrentYear = MOCK_PV_DATA.reduce((s, d) => s + d.currentYear, 0);
+  const totalPrevYear = pvData.reduce((s, d) => s + d.prevYear, 0);
+  const totalCurrentYear = pvData.reduce((s, d) => s + d.currentYear, 0);
   const yoyRatio = totalPrevYear > 0 ? Math.round((totalCurrentYear / totalPrevYear) * 100) : 0;
 
   return (
@@ -187,7 +234,7 @@ export default function VendorShopPVPage() {
       {/* コンテンツ: グラフ */}
       {activeTab === "chart" && (
         <AnalyticsChart
-          data={MOCK_PV_DATA}
+          data={pvData}
           title="店舗アクセス推移"
           showDeviceBreakdown={true}
           valueLabel="閲覧数"
@@ -211,7 +258,7 @@ export default function VendorShopPVPage() {
               </tr>
             </thead>
             <tbody>
-              {MOCK_PV_DATA.map((d) => {
+              {pvData.map((d) => {
                 const ratio = d.prevYear > 0 ? Math.round((d.currentYear / d.prevYear) * 100) : 0;
                 return (
                   <tr key={d.label} className="border-b border-gray-100 hover:bg-gray-50">
@@ -247,12 +294,12 @@ export default function VendorShopPVPage() {
       {/* コンテンツ: リスト */}
       {activeTab === "list" && (
         <div className="bg-white border border-gray-200">
-          {MOCK_PV_DATA.map((d, i) => (
+          {pvData.map((d, i) => (
             <div
               key={d.label}
               className={
                 "flex items-center justify-between px-[16px] py-[12px]" +
-                (i < MOCK_PV_DATA.length - 1 ? " border-b border-gray-100" : "")
+                (i < pvData.length - 1 ? " border-b border-gray-100" : "")
               }
             >
               <div>

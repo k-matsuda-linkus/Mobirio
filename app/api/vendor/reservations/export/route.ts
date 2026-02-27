@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireVendor } from "@/lib/auth/requireAuth";
+import { isSandboxMode, sandboxLog } from "@/lib/sandbox";
+import { mockReservations } from "@/lib/mock/reservations";
 
 /**
  * GET /api/vendor/reservations/export
  * Export reservation data as CSV-ready JSON.
- * Query params: date_type (start|end|completed), from, to, vendor_id,
- *               fields (comma-separated list of fields to include)
+ * Query params: date_type (start|end|completed), from, to, fields (comma-separated)
  */
 export async function GET(request: NextRequest) {
   const authResult = await requireVendor(request);
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
     return authResult;
   }
 
-  const { vendor } = authResult;
+  const { vendor, supabase } = authResult;
   const searchParams = request.nextUrl.searchParams;
   const dateType = searchParams.get("date_type") || "start";
   const from = searchParams.get("from");
@@ -30,104 +31,133 @@ export async function GET(request: NextRequest) {
   const validDateTypes = ["start", "end", "completed"];
   if (!validDateTypes.includes(dateType)) {
     return NextResponse.json(
-      {
-        error: "Bad request",
-        message: "date_type は start, end, completed のいずれかを指定してください",
-      },
+      { error: "Bad request", message: "date_type は start, end, completed のいずれかを指定してください" },
       { status: 400 }
     );
   }
 
-  const requestedFields = fieldsParam
-    ? fieldsParam.split(",").map((f) => f.trim())
-    : null;
-
-  // TODO: Replace with Supabase query once schema is applied
   const allFields = [
-    "reservation_id",
-    "status",
-    "bike_name",
-    "user_name",
-    "user_email",
-    "user_phone",
-    "start_datetime",
-    "end_datetime",
-    "rental_days",
-    "rental_amount",
-    "option_amount",
-    "insurance_amount",
-    "total_amount",
-    "payment_status",
-    "confirmed_at",
-    "completed_at",
-    "cancelled_at",
-    "notes",
+    "reservation_id", "status", "bike_name", "user_name", "user_email", "user_phone",
+    "start_datetime", "end_datetime", "rental_days", "rental_amount", "option_amount",
+    "insurance_amount", "total_amount", "payment_status", "confirmed_at", "completed_at",
+    "cancelled_at", "notes",
   ];
 
+  const requestedFields = fieldsParam ? fieldsParam.split(",").map((f) => f.trim()) : null;
   const fieldsToExport = requestedFields
     ? allFields.filter((f) => requestedFields.includes(f))
     : allFields;
 
-  const mockRecords = [
-    {
-      reservation_id: "res_001",
-      status: "completed",
-      bike_name: "PCX 160",
-      user_name: "田中太郎",
-      user_email: "tanaka@example.com",
-      user_phone: "090-1234-5678",
-      start_datetime: "2025-01-05T09:00:00Z",
-      end_datetime: "2025-01-07T18:00:00Z",
-      rental_days: 3,
-      rental_amount: 24000,
-      option_amount: 1500,
-      insurance_amount: 1500,
-      total_amount: 27000,
-      payment_status: "paid",
-      confirmed_at: "2025-01-04T12:00:00Z",
-      completed_at: "2025-01-07T18:30:00Z",
-      cancelled_at: null,
-      notes: "",
-    },
-    {
-      reservation_id: "res_002",
-      status: "completed",
-      bike_name: "NMAX 155",
-      user_name: "佐藤花子",
-      user_email: "sato@example.com",
-      user_phone: "080-9876-5432",
-      start_datetime: "2025-01-10T10:00:00Z",
-      end_datetime: "2025-01-12T17:00:00Z",
-      rental_days: 3,
-      rental_amount: 22500,
-      option_amount: 0,
-      insurance_amount: 3000,
-      total_amount: 25500,
-      payment_status: "paid",
-      confirmed_at: "2025-01-09T15:00:00Z",
-      completed_at: "2025-01-12T17:15:00Z",
-      cancelled_at: null,
-      notes: "ヘルメット持参",
-    },
-  ];
+  if (isSandboxMode()) {
+    sandboxLog("GET /api/vendor/reservations/export", `vendor=${vendor.id}, from=${from}, to=${to}`);
 
-  // Filter records to only include requested fields
-  const filteredRecords = mockRecords.map((record) => {
+    const dateField = dateType === "end" ? "end_datetime" : "start_datetime";
+    const vendorRsvs = mockReservations
+      .filter((r) => r.vendor_id === vendor.id)
+      .filter((r) => {
+        const val = (r as any)[dateField] || "";
+        return val >= from && val <= to + "T23:59:59";
+      });
+
+    const records = vendorRsvs.map((r) => {
+      const full: Record<string, unknown> = {
+        reservation_id: r.id,
+        status: r.status,
+        bike_name: r.bikeName,
+        user_name: r.user_id,
+        user_email: "",
+        user_phone: "",
+        start_datetime: r.start_datetime,
+        end_datetime: r.end_datetime,
+        rental_days: 1,
+        rental_amount: r.base_amount,
+        option_amount: r.option_amount,
+        insurance_amount: r.insurance_amount,
+        total_amount: r.total_amount,
+        payment_status: r.payment_settlement,
+        confirmed_at: null,
+        completed_at: null,
+        cancelled_at: null,
+        notes: "",
+      };
+      const filtered: Record<string, unknown> = {};
+      for (const field of fieldsToExport) {
+        if (field in full) filtered[field] = full[field];
+      }
+      return filtered;
+    });
+
+    return NextResponse.json({
+      data: records,
+      fields: fieldsToExport,
+      filters: { date_type: dateType, from, to },
+      vendor_id: vendor.id,
+      total: records.length,
+      message: "OK",
+    });
+  }
+
+  // 本番: Supabase
+  const dateColumn = dateType === "end" ? "end_datetime" : dateType === "completed" ? "checkout_at" : "start_datetime";
+
+  const { data: reservations, error } = await supabase
+    .from("reservations")
+    .select("*, bikes(name), users:user_id(full_name, email, phone)")
+    .eq("vendor_id", vendor.id)
+    .gte(dateColumn, from)
+    .lte(dateColumn, to + "T23:59:59")
+    .order(dateColumn, { ascending: false });
+
+  if (error) {
+    return NextResponse.json(
+      { error: "Database error", message: error.message },
+      { status: 500 }
+    );
+  }
+
+  const rsvList = reservations || [];
+
+  const records = rsvList.map((r: any) => {
+    const startDt = r.start_datetime ? new Date(r.start_datetime) : null;
+    const endDt = r.end_datetime ? new Date(r.end_datetime) : null;
+    const rentalDays = startDt && endDt
+      ? Math.max(1, Math.ceil((endDt.getTime() - startDt.getTime()) / (1000 * 60 * 60 * 24)))
+      : 0;
+
+    const full: Record<string, unknown> = {
+      reservation_id: r.id,
+      status: r.status,
+      bike_name: r.bikes?.name || "",
+      user_name: r.users?.full_name || "",
+      user_email: r.users?.email || "",
+      user_phone: r.users?.phone || "",
+      start_datetime: r.start_datetime,
+      end_datetime: r.end_datetime,
+      rental_days: rentalDays,
+      rental_amount: r.base_amount || 0,
+      option_amount: r.option_amount || 0,
+      insurance_amount: r.insurance_amount || 0,
+      total_amount: r.total_amount || 0,
+      payment_status: r.payment_settlement,
+      confirmed_at: r.confirmed_at,
+      completed_at: r.checkout_at,
+      cancelled_at: r.cancelled_at,
+      notes: r.notes || "",
+    };
+
     const filtered: Record<string, unknown> = {};
     for (const field of fieldsToExport) {
-      if (field in record) {
-        filtered[field] = (record as Record<string, unknown>)[field];
-      }
+      if (field in full) filtered[field] = full[field];
     }
     return filtered;
   });
 
   return NextResponse.json({
-    data: filteredRecords,
+    data: records,
     fields: fieldsToExport,
     filters: { date_type: dateType, from, to },
     vendor_id: vendor.id,
-    total: filteredRecords.length,
+    total: records.length,
     message: "OK",
   });
 }

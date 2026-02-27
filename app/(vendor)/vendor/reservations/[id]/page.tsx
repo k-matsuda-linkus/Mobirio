@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Plus, Trash2, ChevronDown, AlertTriangle, Banknote, CreditCard, X } from "lucide-react";
 import { VendorPageHeader } from "@/components/vendor/VendorPageHeader";
@@ -112,19 +112,90 @@ export default function VendorReservationDetailPage() {
   const router = useRouter();
   const reservationId = params.id as string;
 
+  const [reservation, setReservation] = useState(MOCK_RESERVATION);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`/api/vendor/reservations/${reservationId}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((json) => {
+        if (json?.data) {
+          const d = json.data;
+          const depDate = d.start_datetime ? d.start_datetime.slice(0, 10) : "";
+          const depTime = d.start_datetime ? d.start_datetime.slice(11, 16) : "";
+          const retDate = d.end_datetime ? d.end_datetime.slice(0, 10) : "";
+          const retTime = d.end_datetime ? d.end_datetime.slice(11, 16) : "";
+
+          setReservation((prev) => ({
+            ...prev,
+            id: d.id || reservationId,
+            reservationNo: d.reservation_no || d.id || prev.reservationNo,
+            registeredAt: d.created_at ? new Date(d.created_at).toLocaleString("ja-JP") : prev.registeredAt,
+            storeName: d.store_name ?? "",
+            customerName: d.user_name ?? "",
+            memberNo: d.member_no ?? "",
+            age: d.age ?? prev.age,
+            nationality: d.nationality ?? prev.nationality,
+            departureDate: depDate || prev.departureDate,
+            departureTime: depTime || prev.departureTime,
+            returnDate: retDate || prev.returnDate,
+            returnTime: retTime || prev.returnTime,
+            departureAge: d.departure_age ?? prev.departureAge,
+            vehicleName: d.bike_name ?? "",
+            registrationNo: d.registration_number ?? "",
+            chassisNo: d.chassis_number ?? "",
+            priceClass: d.price_class ?? prev.priceClass,
+            displacement: d.displacement ?? prev.displacement,
+            baseAmount: d.base_amount ?? d.total_amount ?? prev.baseAmount,
+            cdwEnabled: d.cdw_enabled ?? prev.cdwEnabled,
+            cdwAmount: d.cdw_amount ?? prev.cdwAmount,
+            gearItems: d.gear_items ?? prev.gearItems,
+            otherCharges: d.other_charges ?? prev.otherCharges,
+            additionalCharges: d.additional_charges ?? prev.additionalCharges,
+            payments: d.payments ?? prev.payments,
+            paymentSettlement: d.payment_settlement ?? prev.paymentSettlement,
+            departureMileage: d.departure_mileage ?? 0,
+            arrivalMileage: d.return_mileage ?? 0,
+            confirmDate: d.confirm_date ?? prev.confirmDate,
+            confirmStore: d.confirm_store ?? prev.confirmStore,
+            contractOutputCount: d.contract_output_count ?? prev.contractOutputCount,
+            contractLatestDate: d.contract_latest_date ?? prev.contractLatestDate,
+            memo: d.memo ?? "",
+            customerNote: d.customer_note ?? "",
+            changeHistory: d.change_history ?? prev.changeHistory,
+            status: d.status || prev.status,
+          }));
+          if (depDate) setDepartureDate(depDate);
+          if (depTime) setDepartureTime(depTime);
+          if (retDate) setReturnDate(retDate);
+          if (retTime) setReturnTime(retTime);
+          setDepartureMileage(String(d.departure_mileage ?? 0));
+          setArrivalMileage(String(d.return_mileage ?? ""));
+          setMemo(d.memo ?? "");
+          setCustomerNote(d.customer_note ?? "");
+          if (d.other_charges) setOtherCharges(d.other_charges);
+          if (d.additional_charges) setAdditionalCharges(d.additional_charges);
+          if (d.payments) setPayments(d.payments);
+          if (d.cdw_enabled !== undefined) setCdwEnabled(d.cdw_enabled);
+        }
+      })
+      .catch((err) => console.error("reservation detail fetch error:", err))
+      .finally(() => setLoading(false));
+  }, [reservationId]);
+
   // Editable state
-  const [departureDate, setDepartureDate] = useState(MOCK_RESERVATION.departureDate);
-  const [departureTime, setDepartureTime] = useState(MOCK_RESERVATION.departureTime);
-  const [returnDate, setReturnDate] = useState(MOCK_RESERVATION.returnDate);
-  const [returnTime, setReturnTime] = useState(MOCK_RESERVATION.returnTime);
-  const [cdwEnabled, setCdwEnabled] = useState(MOCK_RESERVATION.cdwEnabled);
-  const [selectedCoupon, setSelectedCoupon] = useState(MOCK_RESERVATION.couponName);
-  const [otherCharges, setOtherCharges] = useState(MOCK_RESERVATION.otherCharges);
-  const [additionalCharges, setAdditionalCharges] = useState(MOCK_RESERVATION.additionalCharges);
-  const [departureMileage, setDepartureMileage] = useState(String(MOCK_RESERVATION.departureMileage));
-  const [arrivalMileage, setArrivalMileage] = useState(String(MOCK_RESERVATION.arrivalMileage || ""));
-  const [memo, setMemo] = useState(MOCK_RESERVATION.memo);
-  const [customerNote, setCustomerNote] = useState(MOCK_RESERVATION.customerNote);
+  const [departureDate, setDepartureDate] = useState(reservation.departureDate);
+  const [departureTime, setDepartureTime] = useState(reservation.departureTime);
+  const [returnDate, setReturnDate] = useState(reservation.returnDate);
+  const [returnTime, setReturnTime] = useState(reservation.returnTime);
+  const [cdwEnabled, setCdwEnabled] = useState(reservation.cdwEnabled);
+  const [selectedCoupon, setSelectedCoupon] = useState(reservation.couponName);
+  const [otherCharges, setOtherCharges] = useState(reservation.otherCharges);
+  const [additionalCharges, setAdditionalCharges] = useState(reservation.additionalCharges);
+  const [departureMileage, setDepartureMileage] = useState(String(reservation.departureMileage));
+  const [arrivalMileage, setArrivalMileage] = useState(String(reservation.arrivalMileage || ""));
+  const [memo, setMemo] = useState(reservation.memo);
+  const [customerNote, setCustomerNote] = useState(reservation.customerNote);
   const [contractLang, setContractLang] = useState("ja");
   const [historyOpen, setHistoryOpen] = useState(false);
 
@@ -160,7 +231,7 @@ export default function VendorReservationDetailPage() {
   };
 
   // 決済管理
-  const [payments, setPayments] = useState(MOCK_RESERVATION.payments);
+  const [payments, setPayments] = useState(reservation.payments);
   const [paymentModal, setPaymentModal] = useState<{ open: boolean; type: PaymentType }>({ open: false, type: "onsite_cash" });
   const [modalAmount, setModalAmount] = useState("");
   const [modalNote, setModalNote] = useState("");
@@ -174,8 +245,8 @@ export default function VendorReservationDetailPage() {
     return diff > 0 ? diff : 0;
   }, [departureDate, returnDate]);
 
-  const baseAmount = MOCK_RESERVATION.baseAmount;
-  const cdwAmount = cdwEnabled ? MOCK_RESERVATION.cdwAmount * rentalDays : 0;
+  const baseAmount = reservation.baseAmount;
+  const cdwAmount = cdwEnabled ? reservation.cdwAmount * rentalDays : 0;
   const couponDiscount = (() => {
     const coupon = COUPON_OPTIONS.find((c) => c.value === selectedCoupon);
     if (!coupon || !coupon.discount_type) return 0;
@@ -185,7 +256,7 @@ export default function VendorReservationDetailPage() {
     const raw = Math.floor(baseAmount * coupon.discount_value / 100);
     return coupon.max_discount ? Math.min(raw, coupon.max_discount) : raw;
   })();
-  const gearTotal = MOCK_RESERVATION.gearItems.reduce((sum, g) => sum + g.subtotal, 0);
+  const gearTotal = reservation.gearItems.reduce((sum, g) => sum + g.subtotal, 0);
   const otherTotal = otherCharges.reduce((sum, c) => sum + c.amount, 0);
   const rentalTotal = baseAmount + cdwAmount - couponDiscount + gearTotal + otherTotal;
 
@@ -290,7 +361,7 @@ export default function VendorReservationDetailPage() {
         title="予約詳細"
         breadcrumbs={[
           { label: "予約一覧", href: "/vendor/reservations" },
-          { label: MOCK_RESERVATION.reservationNo },
+          { label: reservation.reservationNo },
         ]}
         actions={
           <button
@@ -307,22 +378,22 @@ export default function VendorReservationDetailPage() {
       <div className="bg-white border border-gray-200 p-[16px] mb-[20px] flex flex-wrap items-center gap-[20px]">
         <div>
           <span className="text-xs text-gray-400">予約者名</span>
-          <p className="text-lg font-medium">{MOCK_RESERVATION.customerName}</p>
+          <p className="text-lg font-medium">{reservation.customerName}</p>
         </div>
         <div>
           <span className="text-xs text-gray-400">会員番号</span>
-          <p className="text-sm font-mono">{MOCK_RESERVATION.memberNo}</p>
+          <p className="text-sm font-mono">{reservation.memberNo}</p>
         </div>
         <div>
           <span className="text-xs text-gray-400">年齢</span>
-          <p className="text-sm">{MOCK_RESERVATION.age}歳</p>
+          <p className="text-sm">{reservation.age}歳</p>
         </div>
         <div>
           <span className="text-xs text-gray-400">国籍</span>
-          <p className="text-sm">{MOCK_RESERVATION.nationality}</p>
+          <p className="text-sm">{reservation.nationality}</p>
         </div>
         <div className="ml-auto">
-          <StatusBadge status={MOCK_RESERVATION.status} />
+          <StatusBadge status={reservation.status} />
         </div>
       </div>
 
@@ -337,15 +408,15 @@ export default function VendorReservationDetailPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[14px] mb-[16px]">
               <div>
                 <span className={labelClass}>予約番号</span>
-                <p className={readonlyFieldClass}>{MOCK_RESERVATION.reservationNo}</p>
+                <p className={readonlyFieldClass}>{reservation.reservationNo}</p>
               </div>
               <div>
                 <span className={labelClass}>予約登録日時</span>
-                <p className={readonlyFieldClass}>{MOCK_RESERVATION.registeredAt}</p>
+                <p className={readonlyFieldClass}>{reservation.registeredAt}</p>
               </div>
               <div>
                 <span className={labelClass}>予約場所</span>
-                <p className={readonlyFieldClass}>{MOCK_RESERVATION.storeName}</p>
+                <p className={readonlyFieldClass}>{reservation.storeName}</p>
               </div>
             </div>
 
@@ -371,7 +442,7 @@ export default function VendorReservationDetailPage() {
             <div className="grid grid-cols-2 gap-[14px] mb-[16px]">
               <div>
                 <span className={labelClass}>出発時年齢</span>
-                <p className={readonlyFieldClass}>{MOCK_RESERVATION.departureAge}歳</p>
+                <p className={readonlyFieldClass}>{reservation.departureAge}歳</p>
               </div>
               <div>
                 <span className={labelClass}>レンタル日数</span>
@@ -404,23 +475,23 @@ export default function VendorReservationDetailPage() {
           <div className="bg-white border border-gray-200 p-[20px]">
             <h2 className={sectionTitleClass}>車両</h2>
             <div className="mb-[12px]">
-              <p className="text-xl font-medium mb-[8px]">{MOCK_RESERVATION.vehicleName}</p>
+              <p className="text-xl font-medium mb-[8px]">{reservation.vehicleName}</p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-[12px]">
                 <div>
                   <span className={labelClass}>登録番号</span>
-                  <p className={readonlyFieldClass}>{MOCK_RESERVATION.registrationNo}</p>
+                  <p className={readonlyFieldClass}>{reservation.registrationNo}</p>
                 </div>
                 <div>
                   <span className={labelClass}>車台番号</span>
-                  <p className={readonlyFieldClass}>{MOCK_RESERVATION.chassisNo}</p>
+                  <p className={readonlyFieldClass}>{reservation.chassisNo}</p>
                 </div>
                 <div>
                   <span className={labelClass}>料金クラス</span>
-                  <p className={readonlyFieldClass}>{MOCK_RESERVATION.priceClass}</p>
+                  <p className={readonlyFieldClass}>{reservation.priceClass}</p>
                 </div>
                 <div>
                   <span className={labelClass}>排気量</span>
-                  <p className={readonlyFieldClass}>{MOCK_RESERVATION.displacement}</p>
+                  <p className={readonlyFieldClass}>{reservation.displacement}</p>
                 </div>
               </div>
             </div>
@@ -473,7 +544,7 @@ export default function VendorReservationDetailPage() {
             {/* Riders Gear */}
             <div className="mt-[12px]">
               <h3 className="text-sm font-medium text-gray-700 mb-[8px]">ライダーズギア</h3>
-              {MOCK_RESERVATION.gearItems.length > 0 && (
+              {reservation.gearItems.length > 0 && (
                 <div className="overflow-x-auto mb-[8px]">
                   <table className="w-full text-xs border border-gray-200">
                     <thead>
@@ -488,7 +559,7 @@ export default function VendorReservationDetailPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {MOCK_RESERVATION.gearItems.map((gear) => (
+                      {reservation.gearItems.map((gear) => (
                         <tr key={gear.id} className="border-b border-gray-100">
                           <td className="px-[8px] py-[6px]">{gear.type}</td>
                           <td className="px-[8px] py-[6px]">{gear.size}</td>
@@ -570,7 +641,7 @@ export default function VendorReservationDetailPage() {
             {/* タイトル + 決済全体ステータス */}
             <div className="flex items-center justify-between mb-[16px] pb-[8px] border-b border-gray-200">
               <h2 className="font-serif text-lg font-light">返車処理・ご精算</h2>
-              <StatusBadge status={MOCK_RESERVATION.paymentSettlement} />
+              <StatusBadge status={reservation.paymentSettlement} />
             </div>
 
             {/* 追加精算 */}
@@ -787,7 +858,7 @@ export default function VendorReservationDetailPage() {
             {historyOpen && (
               <div className="px-[20px] pb-[20px] border-t border-gray-100">
                 <div className="space-y-[12px] pt-[12px]">
-                  {MOCK_RESERVATION.changeHistory.map((h, i) => (
+                  {reservation.changeHistory.map((h, i) => (
                     <div key={i} className="flex items-start gap-[12px] text-sm">
                       <span className="text-xs text-gray-400 whitespace-nowrap w-[140px] shrink-0">{h.date}</span>
                       <span className="text-xs text-gray-500 w-[100px] shrink-0">{h.user}</span>
@@ -809,11 +880,11 @@ export default function VendorReservationDetailPage() {
             <div className="space-y-[8px] mb-[12px]">
               <div>
                 <span className={labelClass}>確定日時</span>
-                <p className={readonlyFieldClass}>{MOCK_RESERVATION.confirmDate}</p>
+                <p className={readonlyFieldClass}>{reservation.confirmDate}</p>
               </div>
               <div>
                 <span className={labelClass}>確定店舗</span>
-                <p className={readonlyFieldClass}>{MOCK_RESERVATION.confirmStore}</p>
+                <p className={readonlyFieldClass}>{reservation.confirmStore}</p>
               </div>
             </div>
             <button className="w-full bg-accent text-white py-[10px] text-sm hover:bg-accent-dark">
@@ -827,11 +898,11 @@ export default function VendorReservationDetailPage() {
             <div className="space-y-[8px] mb-[12px]">
               <div>
                 <span className={labelClass}>出力回数</span>
-                <p className={readonlyFieldClass}>{MOCK_RESERVATION.contractOutputCount}回</p>
+                <p className={readonlyFieldClass}>{reservation.contractOutputCount}回</p>
               </div>
               <div>
                 <span className={labelClass}>最新出力日時</span>
-                <p className={readonlyFieldClass}>{MOCK_RESERVATION.contractLatestDate}</p>
+                <p className={readonlyFieldClass}>{reservation.contractLatestDate}</p>
               </div>
               <div>
                 <label className={labelClass}>出力言語</label>

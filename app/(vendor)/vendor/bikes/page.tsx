@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Search, Download, Plus, GripVertical, Image as ImageIcon, List, LayoutGrid } from "lucide-react";
 import { VendorPageHeader } from "@/components/vendor/VendorPageHeader";
@@ -47,127 +47,27 @@ const mockStores = [
   { id: "s-002", name: "鹿児島支店" },
 ];
 
-const utilizationRates: (number | undefined)[] = [85, 62, 91, 45, 78, 55, 88, 30];
-
-const initialMockBikes: BikeRow[] = [
-  {
-    id: "1",
-    image: "/images/bikes/cb400sf.jpg",
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function toBikeRow(bike: any): BikeRow {
+  const attrs: string[] = [];
+  if (bike.is_long_term) attrs.push("長期レンタル");
+  return {
+    id: bike.id,
+    image: bike.image_urls?.[0] ?? "",
     storeName: "宮崎本店",
-    vehicleName: "CB400SF",
-    regNumber: "宮崎 あ 1234",
-    chassisNumber: "NC39-1234567",
-    priceClass: "Aクラス",
-    displacement: "400cc",
-    attributes: ["長期レンタル"],
-    insurance: "active",
-    publishStatus: "published",
-    displayOrder: 1,
-    inspectionExpiry: "2026-06-30",
-  },
-  {
-    id: "2",
-    image: "/images/bikes/pcx160.jpg",
-    storeName: "宮崎本店",
-    vehicleName: "PCX160",
-    regNumber: "宮崎 い 5678",
-    chassisNumber: "KF47-2345678",
-    priceClass: "Bクラス",
-    displacement: "160cc",
-    attributes: [],
-    insurance: "active",
-    publishStatus: "published",
-    displayOrder: 2,
-  },
-  {
-    id: "3",
-    image: "/images/bikes/ninja400.jpg",
-    storeName: "宮崎本店",
-    vehicleName: "Ninja 400",
-    regNumber: "宮崎 う 9012",
-    chassisNumber: "EX400G-3456789",
-    priceClass: "Aクラス",
-    displacement: "400cc",
-    attributes: ["長期レンタル"],
-    insurance: "active",
-    publishStatus: "published",
-    displayOrder: 3,
-    inspectionExpiry: "2026-03-15",
-  },
-  {
-    id: "4",
-    image: "/images/bikes/mt09.jpg",
-    storeName: "鹿児島支店",
-    vehicleName: "MT-09",
-    regNumber: "鹿児島 え 3456",
-    chassisNumber: "RN69J-4567890",
-    priceClass: "Sクラス",
-    displacement: "890cc",
-    attributes: [],
-    insurance: "active",
-    publishStatus: "unpublished",
-    displayOrder: 4,
-    inspectionExpiry: "2026-04-20",
-  },
-  {
-    id: "5",
-    image: "/images/bikes/rebel250.jpg",
-    storeName: "宮崎本店",
-    vehicleName: "Rebel 250",
-    regNumber: "宮崎 お 7890",
-    chassisNumber: "MC49-5678901",
-    priceClass: "Bクラス",
-    displacement: "250cc",
-    attributes: [],
-    insurance: "active",
-    publishStatus: "published",
-    displayOrder: 5,
-  },
-  {
-    id: "6",
-    image: "/images/bikes/gbr350s.jpg",
-    storeName: "鹿児島支店",
-    vehicleName: "GB350S",
-    regNumber: "鹿児島 か 1234",
-    chassisNumber: "NC59-6789012",
-    priceClass: "Aクラス",
-    displacement: "350cc",
-    attributes: ["長期レンタル"],
-    insurance: "active",
-    publishStatus: "published",
-    displayOrder: 6,
-    inspectionExpiry: "2026-05-10",
-  },
-  {
-    id: "7",
-    image: "/images/bikes/xsr900.jpg",
-    storeName: "宮崎本店",
-    vehicleName: "XSR900",
-    regNumber: "宮崎 き 5678",
-    chassisNumber: "RN80J-7890123",
-    priceClass: "Sクラス",
-    displacement: "900cc",
-    attributes: [],
-    insurance: "active",
-    publishStatus: "published",
-    displayOrder: 7,
-    inspectionExpiry: "2026-08-15",
-  },
-  {
-    id: "8",
-    image: "/images/bikes/address125.jpg",
-    storeName: "鹿児島支店",
-    vehicleName: "アドレス125",
-    regNumber: "鹿児島 く 9012",
-    chassisNumber: "DT11A-8901234",
-    priceClass: "Cクラス",
-    displacement: "125cc",
-    attributes: [],
-    insurance: "active",
-    publishStatus: "unpublished",
-    displayOrder: 8,
-  },
-];
+    vehicleName: bike.name ?? bike.vehicleName ?? "",
+    regNumber: bike.registration_number ?? bike.regNumber ?? "",
+    chassisNumber: bike.frame_number ?? bike.chassisNumber ?? "",
+    priceClass: bike.vehicle_class ? `${bike.vehicle_class}クラス` : "",
+    displacement: bike.displacement ? `${bike.displacement}cc` : "",
+    attributes: attrs,
+    insurance: bike.insurance_status ?? "active",
+    publishStatus: bike.is_published ? "published" : "unpublished",
+    displayOrder: bike.display_order ?? 0,
+    inspectionExpiry: bike.inspection_expiry ?? undefined,
+  };
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 const columns: VendorColumn<BikeRow>[] = [
   {
@@ -289,10 +189,21 @@ const columns: VendorColumn<BikeRow>[] = [
 export default function VendorBikesListPage() {
   const [selectedStore, setSelectedStore] = useState("all");
   const [viewMode, setViewMode] = useState<"table" | "grid">("grid");
-  const [bikes, setBikes] = useState<BikeRow[]>(initialMockBikes);
+  const [bikes, setBikes] = useState<BikeRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/vendor/bikes")
+      .then((res) => (res.ok ? res.json() : Promise.reject("API error")))
+      .then((json) => {
+        const rows = (json.data || []).map(toBikeRow);
+        setBikes(rows);
+      })
+      .catch((err) => console.error("車両一覧の取得に失敗:", err))
+      .finally(() => setLoading(false));
+  }, []);
 
   const handlePublishChange = (id: string, isPublished: boolean) => {
-    console.log(`車両ID: ${id} → ${isPublished ? "公開" : "非公開"}`);
     setBikes((prev) =>
       prev.map((bike) =>
         bike.id === id
@@ -300,9 +211,14 @@ export default function VendorBikesListPage() {
           : bike
       )
     );
+    fetch(`/api/vendor/bikes/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_published: isPublished }),
+    }).catch((err) => console.error("公開状態の更新に失敗:", err));
   };
 
-  const gridBikes = bikes.map((bike, index) => ({
+  const gridBikes = bikes.map((bike) => ({
     id: bike.id,
     image: bike.image,
     vehicleName: bike.vehicleName,
@@ -310,8 +226,10 @@ export default function VendorBikesListPage() {
     displacement: bike.displacement,
     priceClass: bike.priceClass,
     publishStatus: bike.publishStatus,
-    utilizationRate: utilizationRates[index],
+    utilizationRate: undefined,
   }));
+
+  if (loading) return <div className="p-[24px]">読み込み中...</div>;
 
   return (
     <div>

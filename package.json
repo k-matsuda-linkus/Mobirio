@@ -1,1 +1,50 @@
-{"name":"mobirio-website","version":"0.2.0","private":true,"scripts":{"dev":"next dev --turbopack","build":"next build","start":"next start","lint":"next lint","type-check":"tsc --noEmit","gen":"node gen.js"},"dependencies":{"@supabase/ssr":"^0.8.0","@supabase/supabase-js":"^2.39.0","date-fns":"^4.1.0","exceljs":"^4.4.0","framer-motion":"^12.0.0","lucide-react":"^0.562.0","next":"^15.5.7","pdfjs-dist":"^5.4.624","qrcode.react":"^4.2.0","react":"^19.0.0","react-dom":"^19.0.0","resend":"^6.9.1","square":"^44.0.0","xlsx":"^0.18.5"},"devDependencies":{"@tailwindcss/postcss":"^4.1.0","@types/node":"^20","@types/react":"^19","@types/react-dom":"^19","eslint":"^8","eslint-config-next":"^15.3.0","postcss":"^8.4.32","tailwindcss":"^4.1.0","typescript":"^5"}}
+{
+  "name": "mobirio-website",
+  "version": "0.2.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit",
+    "gen": "node gen.js",
+    "prepare": "husky"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.8.0",
+    "@supabase/supabase-js": "^2.39.0",
+    "date-fns": "^4.1.0",
+    "exceljs": "^4.4.0",
+    "framer-motion": "^12.0.0",
+    "lucide-react": "^0.562.0",
+    "next": "^15.5.7",
+    "pdfjs-dist": "^5.4.624",
+    "qrcode.react": "^4.2.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "resend": "^6.9.1",
+    "square": "^44.0.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.0",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^8",
+    "eslint-config-next": "^15.3.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "postcss": "^8.4.32",
+    "prettier": "^3.8.1",
+    "tailwindcss": "^4.1.0",
+    "typescript": "^5"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ]
+  }
+}

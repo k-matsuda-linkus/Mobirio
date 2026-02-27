@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Download, TrendingUp, TrendingDown } from "lucide-react";
 import { VendorPageHeader } from "@/components/vendor/VendorPageHeader";
 import { StoreSelector } from "@/components/vendor/StoreSelector";
@@ -11,32 +11,79 @@ const STORES = [
   { id: "store-2", name: "宮崎空港店" },
 ];
 
-const MOCK_PERFORMANCE_DATA = [
-  { label: "1月", prevYear: 245000, currentYear: 312000 },
-  { label: "2月", prevYear: 198000, currentYear: 356000 },
-  { label: "3月", prevYear: 425000, currentYear: 510000 },
-  { label: "4月", prevYear: 520000, currentYear: 620000 },
-  { label: "5月", prevYear: 610000, currentYear: 680000 },
-  { label: "6月", prevYear: 380000, currentYear: 450000 },
-  { label: "7月", prevYear: 720000, currentYear: 800000 },
-  { label: "8月", prevYear: 780000, currentYear: 750000 },
-  { label: "9月", prevYear: 490000, currentYear: 560000 },
-  { label: "10月", prevYear: 420000, currentYear: 510000 },
-  { label: "11月", prevYear: 310000, currentYear: 380000 },
-  { label: "12月", prevYear: 260000, currentYear: 340000 },
-];
+const MONTH_LABELS = ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"];
+
+interface PerformanceRow {
+  label: string;
+  prevYear: number;
+  currentYear: number;
+}
 
 export default function VendorShopPerformancePage() {
   const [selectedStore, setSelectedStore] = useState("store-1");
-  const [dateCondition, setDateCondition] = useState<"reservation" | "departure" | "return">("reservation");
+  const [dateCondition, setDateCondition] = useState<"start" | "end" | "completed">("start");
   const [analysisUnit, setAnalysisUnit] = useState<"year" | "month">("month");
-  const [paymentType, setPaymentType] = useState<"all" | "paid" | "free">("all");
+  const [paymentType, setPaymentType] = useState<"all" | "paid" | "unpaid">("all");
   const [displayType, setDisplayType] = useState<"amount" | "count">("amount");
   const [activeTab, setActiveTab] = useState<"chart" | "list">("chart");
   const [analysisYear, setAnalysisYear] = useState("2026");
+  const [perfData, setPerfData] = useState<PerformanceRow[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const totalPrevYear = MOCK_PERFORMANCE_DATA.reduce((s, d) => s + d.prevYear, 0);
-  const totalCurrentYear = MOCK_PERFORMANCE_DATA.reduce((s, d) => s + d.currentYear, 0);
+  const fetchData = useCallback(() => {
+    setLoading(true);
+    const currentYear = analysisYear;
+    const prevYear = String(parseInt(currentYear) - 1);
+
+    const params = new URLSearchParams({
+      year: currentYear,
+      unit: analysisUnit,
+      date_type: dateCondition,
+      paid_type: paymentType,
+      display: displayType,
+    });
+    const prevParams = new URLSearchParams({
+      year: prevYear,
+      unit: analysisUnit,
+      date_type: dateCondition,
+      paid_type: paymentType,
+      display: displayType,
+    });
+
+    Promise.all([
+      fetch(`/api/vendor/analytics/shop-performance?${params}`).then((r) => r.ok ? r.json() : null),
+      fetch(`/api/vendor/analytics/shop-performance?${prevParams}`).then((r) => r.ok ? r.json() : null),
+    ])
+      .then(([curJson, prevJson]) => {
+        const curData: Array<Record<string, unknown>> = curJson?.data || [];
+        const prevData: Array<Record<string, unknown>> = prevJson?.data || [];
+
+        const extractValue = (item: Record<string, unknown>) => {
+          if (displayType === "amount") return (item.total_amount as number) ?? 0;
+          return (item.reservation_count as number) ?? 0;
+        };
+
+        const merged: PerformanceRow[] = curData.map((cur, i) => {
+          const prev = prevData[i];
+          const labelDisplay = analysisUnit === "month" ? (MONTH_LABELS[i] || (cur.label as string)) : (cur.label as string);
+          return {
+            label: labelDisplay,
+            currentYear: extractValue(cur),
+            prevYear: prev ? extractValue(prev) : 0,
+          };
+        });
+        setPerfData(merged);
+      })
+      .catch((err) => console.error("shop-performance fetch error:", err))
+      .finally(() => setLoading(false));
+  }, [analysisYear, analysisUnit, dateCondition, paymentType, displayType]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const totalPrevYear = perfData.reduce((s, d) => s + d.prevYear, 0);
+  const totalCurrentYear = perfData.reduce((s, d) => s + d.currentYear, 0);
   const yoyRatio = totalPrevYear > 0 ? Math.round((totalCurrentYear / totalPrevYear) * 100) : 0;
 
   const inputClass =
@@ -63,9 +110,9 @@ export default function VendorShopPerformancePage() {
               <label className="block text-[11px] text-gray-400 mb-[4px]">日付条件</label>
               <div className="inline-flex border border-gray-200">
                 {([
-                  { value: "reservation", label: "予約登録日" },
-                  { value: "departure", label: "出発日" },
-                  { value: "return", label: "返却日" },
+                  { value: "start", label: "予約登録日" },
+                  { value: "end", label: "出発日" },
+                  { value: "completed", label: "返却日" },
                 ] as const).map((opt) => (
                   <button
                     key={opt.value}
@@ -115,7 +162,7 @@ export default function VendorShopPerformancePage() {
                 {([
                   { value: "all", label: "すべて" },
                   { value: "paid", label: "有償" },
-                  { value: "free", label: "無償" },
+                  { value: "unpaid", label: "無償" },
                 ] as const).map((opt) => (
                   <button
                     key={opt.value}
@@ -237,7 +284,7 @@ export default function VendorShopPerformancePage() {
       {/* コンテンツ: グラフ */}
       {activeTab === "chart" && (
         <AnalyticsChart
-          data={MOCK_PERFORMANCE_DATA}
+          data={perfData}
           title="店舗予約実績推移"
           valueLabel="円"
         />
@@ -257,7 +304,7 @@ export default function VendorShopPerformancePage() {
               </tr>
             </thead>
             <tbody>
-              {MOCK_PERFORMANCE_DATA.map((d) => {
+              {perfData.map((d) => {
                 const ratio = d.prevYear > 0 ? Math.round((d.currentYear / d.prevYear) * 100) : 0;
                 const diff = d.currentYear - d.prevYear;
                 return (

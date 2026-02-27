@@ -4,6 +4,8 @@ import { mockBikes } from "@/lib/mock/bikes";
 import { REGIONS } from "@/lib/constants";
 import BikeCard from "@/components/bike/BikeCard";
 
+export const revalidate = 3600;
+
 export default function HomePage() {
   const featured = mockBikes.filter((b) => b.is_featured).slice(0, 4);
 

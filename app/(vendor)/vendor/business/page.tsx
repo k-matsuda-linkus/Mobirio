@@ -1,11 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { VendorPageHeader } from "@/components/vendor/VendorPageHeader";
 import { mockBusinessEntity, type BusinessEntity } from "@/lib/mock/business";
 
 export default function BusinessInfoPage() {
   const [form, setForm] = useState<BusinessEntity>({ ...mockBusinessEntity });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/vendor/shop")
+      .then((res) => (res.ok ? res.json() : Promise.reject("API error")))
+      .then((json) => {
+        const d = json.data;
+        if (d) {
+          setForm((prev) => ({
+            ...prev,
+            name: d.name ?? prev.name,
+            phone: d.contact_phone ?? prev.phone,
+            email: d.contact_email ?? prev.email,
+            address: d.address ?? prev.address,
+            postalCode: d.postal_code ?? prev.postalCode,
+          }));
+        }
+      })
+      .catch((err) => console.error(err))
+      .finally(() => setLoading(false));
+  }, []);
 
   const update = <K extends keyof BusinessEntity>(key: K, value: BusinessEntity[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -17,6 +38,8 @@ export default function BusinessInfoPage() {
   const sectionClass = "bg-white border border-gray-200 p-[24px] space-y-[16px]";
   const sectionTitle =
     "text-base font-medium text-gray-800 pb-[8px] border-b border-gray-100 mb-[16px]";
+
+  if (loading) return <div className="p-[24px]">読み込み中...</div>;
 
   return (
     <div>
@@ -182,7 +205,22 @@ export default function BusinessInfoPage() {
         <div className="flex justify-end pt-[16px] pb-[40px]">
           <button
             type="button"
-            onClick={() => alert("保存しました")}
+            onClick={() => {
+              fetch("/api/vendor/shop", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  name: form.name,
+                  contact_phone: form.phone,
+                  contact_email: form.email,
+                  address: form.address,
+                  postal_code: form.postalCode,
+                }),
+              })
+                .then((res) => (res.ok ? res.json() : Promise.reject("API error")))
+                .then(() => alert("保存しました"))
+                .catch(() => alert("保存に失敗しました"));
+            }}
             className="bg-accent text-white px-[32px] py-[10px] text-sm hover:bg-accent/90"
           >
             保存

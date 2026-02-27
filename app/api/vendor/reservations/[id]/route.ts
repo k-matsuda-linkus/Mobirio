@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireVendor } from "@/lib/auth/requireAuth";
+import { isSandboxMode, sandboxLog } from "@/lib/sandbox";
+import { mockReservations } from "@/lib/mock/reservations";
+import { mockUsers } from "@/lib/mock/users";
+import { mockBikes } from "@/lib/mock/bikes";
 import type { Reservation } from "@/types/database";
 
 export async function GET(
@@ -13,6 +17,30 @@ export async function GET(
   }
 
   const { vendor, supabase } = authResult;
+
+  if (isSandboxMode()) {
+    sandboxLog("GET /api/vendor/reservations/[id]", `vendor=${vendor.id}, id=${id}`);
+    const mock = mockReservations.find((r) => r.id === id && r.vendor_id === vendor.id);
+    if (!mock) {
+      return NextResponse.json(
+        { error: "Not found", message: "予約が見つかりません" },
+        { status: 404 }
+      );
+    }
+    // FEが期待するフラットフィールドを付与
+    const user = mockUsers.find((u) => u.id === mock.user_id);
+    const bike = mockBikes.find((b) => b.id === mock.bike_id);
+    const enriched = {
+      ...mock,
+      bike_name: mock.bikeName || bike?.name || "",
+      user_name: user?.full_name || "",
+      store_name: mock.vendorName || "",
+      registration_number: bike?.registration_number || "",
+      chassis_number: bike?.frame_number || "",
+      payments: [],
+    };
+    return NextResponse.json({ data: enriched, message: "OK" });
+  }
 
   const { data: reservationData, error } = await supabase
     .from("reservations")
@@ -41,17 +69,34 @@ export async function GET(
     );
   }
 
-  const reservation = reservationData as Reservation & { bike: unknown; user: unknown; reservation_options: unknown[]; payment: unknown };
+  const raw = reservationData as Record<string, unknown>;
 
   // Verify vendor owns this reservation
-  if (reservation.vendor_id !== vendor.id) {
+  if (raw.vendor_id !== vendor.id) {
     return NextResponse.json(
       { error: "Forbidden", message: "この予約を閲覧する権限がありません" },
       { status: 403 }
     );
   }
 
-  return NextResponse.json({ data: reservation, message: "OK" });
+  // JOINネスト結果をフラット化（FEが bike_name, user_name, payments 等を期待）
+  const bike = raw.bike as Record<string, unknown> | null;
+  const user = raw.user as Record<string, unknown> | null;
+  const payment = raw.payment as unknown[];
+  const reservationOptions = raw.reservation_options as unknown[];
+  const { bike: _b, user: _u, payment: _p, reservation_options: _ro, ...rest } = raw;
+  const flatReservation = {
+    ...rest,
+    bike_name: bike?.name || "",
+    user_name: user?.full_name || "",
+    store_name: vendor.name || "",
+    registration_number: bike?.registration_number || "",
+    chassis_number: bike?.frame_number || "",
+    payments: Array.isArray(payment) ? payment : payment ? [payment] : [],
+    reservation_options: reservationOptions || [],
+  };
+
+  return NextResponse.json({ data: flatReservation, message: "OK" });
 }
 
 export async function PATCH(
@@ -65,6 +110,40 @@ export async function PATCH(
   }
 
   const { vendor, supabase } = authResult;
+
+  if (isSandboxMode()) {
+    sandboxLog("PATCH /api/vendor/reservations/[id]", `vendor=${vendor.id}, id=${id}`);
+    const mock = mockReservations.find((r) => r.id === id && r.vendor_id === vendor.id);
+    if (!mock) {
+      return NextResponse.json(
+        { error: "Not found", message: "予約が見つかりません" },
+        { status: 404 }
+      );
+    }
+
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid JSON", message: "リクエストボディが不正です" },
+        { status: 400 }
+      );
+    }
+
+    if (body.notes === undefined) {
+      return NextResponse.json(
+        { error: "Bad request", message: "更新するフィールドがありません" },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "予約を更新しました",
+      data: { ...mock, notes: body.notes ?? (mock as any).notes, updated_at: new Date().toISOString() },
+    });
+  }
 
   // Get existing reservation
   const { data: existingData, error: fetchError } = await supabase

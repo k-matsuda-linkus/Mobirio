@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { VendorPageHeader } from "@/components/vendor/VendorPageHeader";
@@ -25,14 +25,40 @@ export default function ReviewDetailPage() {
   const params = useParams();
   const reviewId = params.id as string;
 
+  const mockRef = useRef({ ...mockData });
+
   const [isPublished, setIsPublished] = useState(mockData.isPublished);
   const [replyContent, setReplyContent] = useState(mockData.replyContent);
   const [replyAuthor, setReplyAuthor] = useState(mockData.replyAuthor);
+  const [loading, setLoading] = useState(true);
+  const [reviewContent, setReviewContent] = useState(mockData.reviewContent);
+
+  useEffect(() => {
+    fetch(`/api/vendor/shop-reviews/${reviewId}`)
+      .then((res) => (res.ok ? res.json() : Promise.reject("API error")))
+      .then((json) => {
+        const d = json.data;
+        if (d) {
+          if (d.content) setReviewContent(d.content);
+          if (d.reply) setReplyContent(d.reply);
+          if (d.is_published !== undefined) setIsPublished(d.is_published);
+          if (d.nickname) mockRef.current.nickname = d.nickname;
+          if (d.reservation_id) mockRef.current.reservationNo = d.reservation_id;
+          if (d.posted_at) mockRef.current.postedAt = d.posted_at.slice(0, 16).replace("T", " ");
+          if (d.reply_by) setReplyAuthor(d.reply_by);
+          if (d.reply_at) mockRef.current.repliedAt = d.reply_at.slice(0, 16).replace("T", " ");
+        }
+      })
+      .catch((err) => console.error(err))
+      .finally(() => setLoading(false));
+  }, [reviewId]);
 
   const inputClass = "w-full border border-gray-200 px-[12px] py-[10px] text-sm focus:border-accent focus:outline-none";
   const labelClass = "block text-xs font-medium text-gray-500 mb-[4px]";
   const sectionClass = "bg-white border border-gray-200 p-[24px] space-y-[16px]";
   const sectionTitle = "text-base font-medium text-gray-800 pb-[8px] border-b border-gray-100 mb-[16px]";
+
+  if (loading) return <div className="p-[24px]">読み込み中...</div>;
 
   return (
     <div>
@@ -72,7 +98,7 @@ export default function ReviewDetailPage() {
               <label className={labelClass}>店舗名</label>
               <input
                 type="text"
-                value={mockData.storeName}
+                value={mockRef.current.storeName}
                 readOnly
                 className={inputClass + " bg-gray-50 text-gray-500"}
               />
@@ -81,7 +107,7 @@ export default function ReviewDetailPage() {
               <label className={labelClass}>ニックネーム</label>
               <input
                 type="text"
-                value={mockData.nickname}
+                value={mockRef.current.nickname}
                 readOnly
                 className={inputClass + " bg-gray-50 text-gray-500"}
               />
@@ -93,7 +119,7 @@ export default function ReviewDetailPage() {
               <label className={labelClass}>予約番号</label>
               <input
                 type="text"
-                value={mockData.reservationNo}
+                value={mockRef.current.reservationNo}
                 readOnly
                 className={inputClass + " bg-gray-50 text-gray-500"}
               />
@@ -102,7 +128,7 @@ export default function ReviewDetailPage() {
               <label className={labelClass}>投稿日時</label>
               <input
                 type="text"
-                value={mockData.postedAt}
+                value={mockRef.current.postedAt}
                 readOnly
                 className={inputClass + " bg-gray-50 text-gray-500"}
               />
@@ -112,7 +138,7 @@ export default function ReviewDetailPage() {
           <div>
             <label className={labelClass}>クチコミ内容</label>
             <textarea
-              value={mockData.reviewContent}
+              value={reviewContent}
               readOnly
               className={inputClass + " min-h-[120px] bg-gray-50 text-gray-600 resize-none"}
               rows={5}
@@ -157,7 +183,7 @@ export default function ReviewDetailPage() {
               <label className={labelClass}>返信日時</label>
               <input
                 type="text"
-                value={mockData.repliedAt}
+                value={mockRef.current.repliedAt}
                 readOnly
                 className={inputClass + " bg-gray-50 text-gray-500"}
               />
@@ -175,7 +201,16 @@ export default function ReviewDetailPage() {
           </Link>
           <button
             type="button"
-            onClick={() => alert("保存しました")}
+            onClick={() => {
+              fetch(`/api/vendor/shop-reviews/${reviewId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ reply: replyContent, reply_by: replyAuthor, is_published: isPublished }),
+              })
+                .then((res) => (res.ok ? res.json() : Promise.reject("API error")))
+                .then(() => alert("保存しました"))
+                .catch(() => alert("保存に失敗しました"));
+            }}
             className="bg-accent text-white px-[32px] py-[10px] text-sm hover:bg-accent/90"
           >
             登録

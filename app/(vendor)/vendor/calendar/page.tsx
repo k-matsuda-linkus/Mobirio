@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { VendorPageHeader } from "@/components/vendor/VendorPageHeader";
 import { StoreSelector } from "@/components/vendor/StoreSelector";
@@ -30,25 +30,6 @@ const MOCK_STORES = [
   { id: "s2", name: "宮崎空港店" },
 ];
 
-const MOCK_VEHICLES: Vehicle[] = [
-  { id: "v1", name: "PCX160", registrationNo: "宮崎 あ 12-34" },
-  { id: "v2", name: "ADV150", registrationNo: "宮崎 い 56-78" },
-  { id: "v3", name: "CB250R", registrationNo: "宮崎 う 90-12" },
-  { id: "v4", name: "Rebel 250", registrationNo: "宮崎 え 34-56" },
-  { id: "v5", name: "Ninja 400", registrationNo: "宮崎 お 78-90" },
-];
-
-const MOCK_RESERVATIONS: ReservationBlock[] = [
-  { id: "rb1", vehicleId: "v1", customerName: "田中 太郎", startDate: "2025-07-14", startTime: "10:00", endDate: "2025-07-16", endTime: "10:00" },
-  { id: "rb2", vehicleId: "v1", customerName: "渡辺 あゆみ", startDate: "2025-07-20", startTime: "10:00", endDate: "2025-07-22", endTime: "10:00" },
-  { id: "rb3", vehicleId: "v2", customerName: "山田 花子", startDate: "2025-07-15", startTime: "11:00", endDate: "2025-07-17", endTime: "17:00" },
-  { id: "rb4", vehicleId: "v3", customerName: "佐藤 一郎", startDate: "2025-07-16", startTime: "09:00", endDate: "2025-07-18", endTime: "09:00" },
-  { id: "rb5", vehicleId: "v4", customerName: "鈴木 次郎", startDate: "2025-07-17", startTime: "10:00", endDate: "2025-07-19", endTime: "10:00" },
-  { id: "rb6", vehicleId: "v5", customerName: "伊藤 健太", startDate: "2025-07-19", startTime: "09:00", endDate: "2025-07-21", endTime: "17:00" },
-  { id: "rb7", vehicleId: "v3", customerName: "高橋 美咲", startDate: "2025-07-22", startTime: "13:00", endDate: "2025-07-24", endTime: "13:00" },
-  { id: "rb8", vehicleId: "v5", customerName: "加藤 翔太", startDate: "2025-07-25", startTime: "10:00", endDate: "2025-07-27", endTime: "10:00" },
-];
-
 const HOLIDAYS = new Set(["2025-07-21"]); // Mock holiday: 海の日
 
 const DAY_NAMES = ["日", "月", "火", "水", "木", "金", "土"];
@@ -73,8 +54,15 @@ export default function VendorCalendarPage() {
   const [selectedStore, setSelectedStore] = useState("s1");
   const [startOffset, setStartOffset] = useState(0); // days from base date
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [reservations, setReservations] = useState<ReservationBlock[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const baseDate = useMemo(() => new Date("2025-07-14"), []);
+  const baseDate = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  }, []);
 
   const days = useMemo(() => {
     const arr: Date[] = [];
@@ -85,6 +73,42 @@ export default function VendorCalendarPage() {
     }
     return arr;
   }, [baseDate, startOffset]);
+
+  // API fetchでデータ取得
+  useEffect(() => {
+    setLoading(true);
+    const startDate = formatDate(days[0]);
+    const endDate = formatDate(days[29]);
+
+    Promise.all([
+      fetch("/api/vendor/bikes").then((r) => r.ok ? r.json() : null),
+      fetch(`/api/vendor/reservations?startDate=${startDate}&endDate=${endDate}`).then((r) => r.ok ? r.json() : null),
+    ])
+      .then(([bikesJson, rsvJson]) => {
+        if (bikesJson?.data) {
+          const bikeData = Array.isArray(bikesJson.data) ? bikesJson.data : [];
+          setVehicles(bikeData.map((b: any) => ({
+            id: b.id,
+            name: b.name || b.model_name || "",
+            registrationNo: b.registration_number || "",
+          })));
+        }
+        if (rsvJson?.data) {
+          const rsvData = Array.isArray(rsvJson.data) ? rsvJson.data : [];
+          setReservations(rsvData.map((r: any) => ({
+            id: r.id,
+            vehicleId: r.bike_id || "",
+            customerName: r.user_name || r.customerName || "顧客",
+            startDate: r.start_datetime ? r.start_datetime.slice(0, 10) : "",
+            startTime: r.start_datetime ? r.start_datetime.slice(11, 16) : "10:00",
+            endDate: r.end_datetime ? r.end_datetime.slice(0, 10) : "",
+            endTime: r.end_datetime ? r.end_datetime.slice(11, 16) : "10:00",
+          })));
+        }
+      })
+      .catch((err) => console.error("calendar fetch error:", err))
+      .finally(() => setLoading(false));
+  }, [days]);
 
   // Calculate the column span for a reservation block
   const getBlockPosition = (block: ReservationBlock) => {
@@ -146,115 +170,121 @@ export default function VendorCalendarPage() {
         </span>
       </div>
 
-      {/* Gantt Chart */}
-      <div className="bg-white border border-gray-200 overflow-hidden">
-        <div className="flex">
-          {/* Fixed left column */}
-          <div className="shrink-0 border-r border-gray-200" style={{ width: LEFT_COL_WIDTH }}>
-            {/* Header cell */}
-            <div className="h-[48px] bg-gray-50 border-b border-gray-200 flex items-center px-[12px]">
-              <span className="text-xs font-medium text-gray-500">車両</span>
-            </div>
-            {/* Vehicle rows */}
-            {MOCK_VEHICLES.map((vehicle) => (
-              <div
-                key={vehicle.id}
-                className="h-[60px] border-b border-gray-100 flex items-center gap-[8px] px-[12px]"
-              >
-                <div className="w-[36px] h-[36px] bg-gray-200 shrink-0 flex items-center justify-center text-[10px] text-gray-400">
-                  IMG
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium truncate">{vehicle.name}</p>
-                  <p className="text-[10px] text-gray-400 truncate">{vehicle.registrationNo}</p>
-                </div>
+      {loading ? (
+        <div className="text-sm text-gray-500 py-[24px] text-center">読み込み中...</div>
+      ) : vehicles.length === 0 ? (
+        <div className="text-sm text-gray-400 py-[24px] text-center">車両データがありません</div>
+      ) : (
+        /* Gantt Chart */
+        <div className="bg-white border border-gray-200 overflow-hidden">
+          <div className="flex">
+            {/* Fixed left column */}
+            <div className="shrink-0 border-r border-gray-200" style={{ width: LEFT_COL_WIDTH }}>
+              {/* Header cell */}
+              <div className="h-[48px] bg-gray-50 border-b border-gray-200 flex items-center px-[12px]">
+                <span className="text-xs font-medium text-gray-500">車両</span>
               </div>
-            ))}
-          </div>
+              {/* Vehicle rows */}
+              {vehicles.map((vehicle) => (
+                <div
+                  key={vehicle.id}
+                  className="h-[60px] border-b border-gray-100 flex items-center gap-[8px] px-[12px]"
+                >
+                  <div className="w-[36px] h-[36px] bg-gray-200 shrink-0 flex items-center justify-center text-[10px] text-gray-400">
+                    IMG
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{vehicle.name}</p>
+                    <p className="text-[10px] text-gray-400 truncate">{vehicle.registrationNo}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
 
-          {/* Scrollable date columns */}
-          <div className="flex-1 overflow-x-auto" ref={scrollRef}>
-            <div style={{ width: COL_WIDTH * 30 }}>
-              {/* Date headers */}
-              <div className="flex h-[48px] border-b border-gray-200">
-                {days.map((d, i) => {
-                  const dateStr = formatDate(d);
-                  const isHoliday = HOLIDAYS.has(dateStr);
-                  const isSunday = d.getDay() === 0;
-                  const isSaturday = d.getDay() === 6;
-                  let headerBg = "bg-gray-50";
-                  let textColor = "text-gray-500";
-                  if (isHoliday || isSunday) {
-                    headerBg = "bg-red-50";
-                    textColor = "text-red-500";
-                  } else if (isSaturday) {
-                    headerBg = "bg-blue-50";
-                    textColor = "text-blue-500";
-                  }
+            {/* Scrollable date columns */}
+            <div className="flex-1 overflow-x-auto" ref={scrollRef}>
+              <div style={{ width: COL_WIDTH * 30 }}>
+                {/* Date headers */}
+                <div className="flex h-[48px] border-b border-gray-200">
+                  {days.map((d, i) => {
+                    const dateStr = formatDate(d);
+                    const isHoliday = HOLIDAYS.has(dateStr);
+                    const isSunday = d.getDay() === 0;
+                    const isSaturday = d.getDay() === 6;
+                    let headerBg = "bg-gray-50";
+                    let textColor = "text-gray-500";
+                    if (isHoliday || isSunday) {
+                      headerBg = "bg-red-50";
+                      textColor = "text-red-500";
+                    } else if (isSaturday) {
+                      headerBg = "bg-blue-50";
+                      textColor = "text-blue-500";
+                    }
 
+                    return (
+                      <div
+                        key={i}
+                        className={`shrink-0 flex items-center justify-center border-r border-gray-200 text-xs ${headerBg} ${textColor}`}
+                        style={{ width: COL_WIDTH }}
+                      >
+                        {dateLabel(d)}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Vehicle rows with reservation blocks */}
+                {vehicles.map((vehicle) => {
+                  const vehicleBlocks = reservations.filter((r) => r.vehicleId === vehicle.id);
                   return (
-                    <div
-                      key={i}
-                      className={`shrink-0 flex items-center justify-center border-r border-gray-200 text-xs ${headerBg} ${textColor}`}
-                      style={{ width: COL_WIDTH }}
-                    >
-                      {dateLabel(d)}
+                    <div key={vehicle.id} className="relative h-[60px] border-b border-gray-100 flex">
+                      {/* Background columns */}
+                      {days.map((d, i) => {
+                        const dateStr = formatDate(d);
+                        const isHoliday = HOLIDAYS.has(dateStr);
+                        const isSunday = d.getDay() === 0;
+                        let bgClass = "";
+                        if (isHoliday || isSunday) bgClass = "bg-red-50/30";
+                        return (
+                          <div
+                            key={i}
+                            className={`shrink-0 border-r border-gray-100 ${bgClass}`}
+                            style={{ width: COL_WIDTH }}
+                          />
+                        );
+                      })}
+
+                      {/* Reservation blocks overlay */}
+                      {vehicleBlocks.map((block) => {
+                        const pos = getBlockPosition(block);
+                        if (!pos) return null;
+                        return (
+                          <div
+                            key={block.id}
+                            className="absolute top-[8px] h-[44px] bg-accent/15 border border-accent/40 flex items-center px-[6px] overflow-hidden cursor-pointer hover:bg-accent/25 transition-colors"
+                            style={{
+                              left: pos.startCol * COL_WIDTH + 2,
+                              width: pos.span * COL_WIDTH - 4,
+                            }}
+                            title={`${block.customerName} (${block.startTime}~${block.endTime})`}
+                          >
+                            <div className="min-w-0">
+                              <p className="text-[10px] text-accent font-medium truncate">
+                                {block.startTime}~{block.endTime}
+                              </p>
+                              <p className="text-xs text-gray-700 truncate">{block.customerName}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 })}
               </div>
-
-              {/* Vehicle rows with reservation blocks */}
-              {MOCK_VEHICLES.map((vehicle) => {
-                const vehicleBlocks = MOCK_RESERVATIONS.filter((r) => r.vehicleId === vehicle.id);
-                return (
-                  <div key={vehicle.id} className="relative h-[60px] border-b border-gray-100 flex">
-                    {/* Background columns */}
-                    {days.map((d, i) => {
-                      const dateStr = formatDate(d);
-                      const isHoliday = HOLIDAYS.has(dateStr);
-                      const isSunday = d.getDay() === 0;
-                      let bgClass = "";
-                      if (isHoliday || isSunday) bgClass = "bg-red-50/30";
-                      return (
-                        <div
-                          key={i}
-                          className={`shrink-0 border-r border-gray-100 ${bgClass}`}
-                          style={{ width: COL_WIDTH }}
-                        />
-                      );
-                    })}
-
-                    {/* Reservation blocks overlay */}
-                    {vehicleBlocks.map((block) => {
-                      const pos = getBlockPosition(block);
-                      if (!pos) return null;
-                      return (
-                        <div
-                          key={block.id}
-                          className="absolute top-[8px] h-[44px] bg-accent/15 border border-accent/40 flex items-center px-[6px] overflow-hidden cursor-pointer hover:bg-accent/25 transition-colors"
-                          style={{
-                            left: pos.startCol * COL_WIDTH + 2,
-                            width: pos.span * COL_WIDTH - 4,
-                          }}
-                          title={`${block.customerName} (${block.startTime}~${block.endTime})`}
-                        >
-                          <div className="min-w-0">
-                            <p className="text-[10px] text-accent font-medium truncate">
-                              {block.startTime}~{block.endTime}
-                            </p>
-                            <p className="text-xs text-gray-700 truncate">{block.customerName}</p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })}
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

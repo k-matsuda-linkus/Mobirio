@@ -1,10 +1,15 @@
 import { createBrowserClient } from "@supabase/ssr";
 import type { Database } from "@/types/database";
 
-let client: ReturnType<typeof createBrowserClient<Database>> | null = null;
+// HMR による重複生成防止（window + module 二重キャッシュ）
+const WINDOW_KEY = "__mobirio_supabase";
+let moduleClient: ReturnType<typeof createBrowserClient<Database>> | null = null;
 
 export function createClient() {
-  if (client) return client;
+  if (typeof window !== "undefined" && (window as any)[WINDOW_KEY]) {
+    return (window as any)[WINDOW_KEY] as ReturnType<typeof createBrowserClient<Database>>;
+  }
+  if (moduleClient) return moduleClient;
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -15,6 +20,8 @@ export function createClient() {
     );
   }
 
-  client = createBrowserClient<Database>(url, key);
+  const client = createBrowserClient<Database>(url, key);
+  if (typeof window !== "undefined") (window as any)[WINDOW_KEY] = client;
+  moduleClient = client;
   return client;
 }

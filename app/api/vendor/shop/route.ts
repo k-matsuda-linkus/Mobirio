@@ -1,19 +1,68 @@
-import { NextRequest, NextResponse } from 'next/server';
-
-// TODO: Add vendor authentication check
-// TODO: Connect to Supabase
+import { NextRequest, NextResponse } from "next/server";
+import { requireVendor } from "@/lib/auth/requireAuth";
+import { isSandboxMode, sandboxLog } from "@/lib/sandbox";
+import { mockVendors } from "@/lib/mock/vendors";
 
 export async function GET(request: NextRequest) {
-  return NextResponse.json({
-    data: {
-      id: 'vendor_001', name: 'Tokyo Bike Rental', description: '渋谷駅から徒歩5分',
-      address: '東京都渋谷区神南1-1-1', phone: '03-1234-5678',
-      email: 'info@tokyobikerental.com', logo_url: '/images/vendor/logo.png',
-    },
-    message: 'OK',
-  });
+  const authResult = await requireVendor(request);
+  if (authResult instanceof NextResponse) return authResult;
+  const { vendor, supabase } = authResult;
+
+  if (isSandboxMode()) {
+    sandboxLog("GET /api/vendor/shop", `vendor=${vendor.id}`);
+    const mv = mockVendors.find((v) => v.id === vendor.id) ?? mockVendors[0];
+    return NextResponse.json({ data: mv, message: "OK" });
+  }
+
+  const { data, error } = await supabase
+    .from("vendors")
+    .select("*")
+    .eq("id", vendor.id)
+    .single();
+
+  if (error) {
+    return NextResponse.json(
+      { error: "Database error", message: error.message },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({ data, message: "OK" });
 }
 
 export async function PUT(request: NextRequest) {
-  return NextResponse.json({ success: true, message: 'Shop info updated' });
+  const authResult = await requireVendor(request);
+  if (authResult instanceof NextResponse) return authResult;
+  const { vendor, supabase } = authResult;
+
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid JSON", message: "リクエストボディが不正です" },
+      { status: 400 }
+    );
+  }
+
+  if (isSandboxMode()) {
+    sandboxLog("PUT /api/vendor/shop", `vendor=${vendor.id}`);
+    return NextResponse.json({ data: { ...vendor, ...body }, message: "店舗情報を更新しました" });
+  }
+
+  const { data, error } = await supabase
+    .from("vendors")
+    .update({ ...body, updated_at: new Date().toISOString() })
+    .eq("id", vendor.id)
+    .select()
+    .single();
+
+  if (error) {
+    return NextResponse.json(
+      { error: "Database error", message: error.message },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({ data, message: "店舗情報を更新しました" });
 }

@@ -1,8 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Download } from "lucide-react";
 import { VendorPageHeader } from "@/components/vendor/VendorPageHeader";
+
+interface LogRecordAPI {
+  id: string;
+  vendor_id: string;
+  user_id: string;
+  user_email: string;
+  action: string;
+  ip_address: string;
+  user_agent: string;
+  created_at: string;
+}
 
 interface LogRow {
   id: string;
@@ -12,47 +23,33 @@ interface LogRow {
   loginAt: string;
 }
 
-const MOCK_LOGS: LogRow[] = [
-  {
-    id: "log-001",
-    loginId: "admin@miyazaki-tachibana.co.jp",
-    ipAddress: "192.168.1.100",
-    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0",
-    loginAt: "2026/02/14 09:15:32",
-  },
-  {
-    id: "log-002",
-    loginId: "staff01@miyazaki-tachibana.co.jp",
-    ipAddress: "192.168.1.101",
-    userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_2) Safari/605.1.15",
-    loginAt: "2026/02/14 08:45:10",
-  },
-  {
-    id: "log-003",
-    loginId: "admin@miyazaki-airport.co.jp",
-    ipAddress: "10.0.0.55",
-    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Firefox/121.0",
-    loginAt: "2026/02/13 18:30:44",
-  },
-  {
-    id: "log-004",
-    loginId: "staff02@miyazaki-tachibana.co.jp",
-    ipAddress: "192.168.1.102",
-    userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) Safari/604.1",
-    loginAt: "2026/02/13 14:22:18",
-  },
-  {
-    id: "log-005",
-    loginId: "admin@miyazaki-tachibana.co.jp",
-    ipAddress: "192.168.1.100",
-    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0",
-    loginAt: "2026/02/13 09:05:55",
-  },
-];
-
 export default function VendorLogsExportPage() {
   const [dateFrom, setDateFrom] = useState("2026-02-01");
   const [dateTo, setDateTo] = useState("2026-02-14");
+  const [rows, setRows] = useState<LogRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/vendor/exports/logs?from=${dateFrom}&to=${dateTo}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((json) => {
+        if (json?.data) {
+          const mapped: LogRow[] = (json.data as LogRecordAPI[]).map((rec) => ({
+            id: rec.id,
+            loginId: rec.user_email || rec.user_id || "",
+            ipAddress: rec.ip_address || "",
+            userAgent: rec.user_agent || "",
+            loginAt: rec.created_at || "",
+          }));
+          setRows(mapped);
+        } else {
+          setRows([]);
+        }
+      })
+      .catch((err) => console.error("logs export error:", err))
+      .finally(() => setLoading(false));
+  }, [dateFrom, dateTo]);
 
   const inputClass =
     "border border-gray-300 px-[10px] py-[6px] text-sm focus:outline-none focus:border-accent";
@@ -93,28 +90,36 @@ export default function VendorLogsExportPage() {
       </div>
 
       {/* Preview table */}
-      <div className="bg-white border border-gray-200 overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="bg-gray-50 border-b border-gray-200">
-              <th className="px-[12px] py-[10px] text-left text-xs font-medium text-gray-500 whitespace-nowrap">ログインID</th>
-              <th className="px-[12px] py-[10px] text-left text-xs font-medium text-gray-500 whitespace-nowrap">IPアドレス</th>
-              <th className="px-[12px] py-[10px] text-left text-xs font-medium text-gray-500 whitespace-nowrap">ユーザーエージェント</th>
-              <th className="px-[12px] py-[10px] text-left text-xs font-medium text-gray-500 whitespace-nowrap">ログイン日時</th>
-            </tr>
-          </thead>
-          <tbody>
-            {MOCK_LOGS.map((row) => (
-              <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50">
-                <td className="px-[12px] py-[10px] text-sm text-gray-700 whitespace-nowrap">{row.loginId}</td>
-                <td className="px-[12px] py-[10px] text-sm text-gray-700 font-mono text-xs whitespace-nowrap">{row.ipAddress}</td>
-                <td className="px-[12px] py-[10px] text-sm text-gray-500 text-xs max-w-[400px] truncate">{row.userAgent}</td>
-                <td className="px-[12px] py-[10px] text-sm text-gray-700 whitespace-nowrap">{row.loginAt}</td>
+      {loading ? (
+        <div className="text-sm text-gray-500 py-[24px] text-center">読み込み中...</div>
+      ) : rows.length === 0 ? (
+        <div className="bg-white border border-gray-200 p-[24px] text-sm text-gray-400 text-center">
+          該当するログがありません
+        </div>
+      ) : (
+        <div className="bg-white border border-gray-200 overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200">
+                <th className="px-[12px] py-[10px] text-left text-xs font-medium text-gray-500 whitespace-nowrap">ログインID</th>
+                <th className="px-[12px] py-[10px] text-left text-xs font-medium text-gray-500 whitespace-nowrap">IPアドレス</th>
+                <th className="px-[12px] py-[10px] text-left text-xs font-medium text-gray-500 whitespace-nowrap">ユーザーエージェント</th>
+                <th className="px-[12px] py-[10px] text-left text-xs font-medium text-gray-500 whitespace-nowrap">ログイン日時</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50">
+                  <td className="px-[12px] py-[10px] text-sm text-gray-700 whitespace-nowrap">{row.loginId}</td>
+                  <td className="px-[12px] py-[10px] text-sm text-gray-700 font-mono text-xs whitespace-nowrap">{row.ipAddress}</td>
+                  <td className="px-[12px] py-[10px] text-sm text-gray-500 text-xs max-w-[400px] truncate">{row.userAgent}</td>
+                  <td className="px-[12px] py-[10px] text-sm text-gray-700 whitespace-nowrap">{row.loginAt}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

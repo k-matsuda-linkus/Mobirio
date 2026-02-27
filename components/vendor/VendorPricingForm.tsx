@@ -5,7 +5,7 @@ import { RENTAL_DURATIONS } from "@/lib/constants";
 type PricingRule = { duration: string; price: number };
 type Props = {
   bikeId?: string;
-  vendorId: string;
+  vendorId?: string;
   onSubmit: (rules: PricingRule[], validFrom: string, validTo: string) => void;
 };
 const inputCls = "w-full border border-gray-200 bg-white px-[12px] py-[10px] text-sm focus:border-accent focus:outline-none";

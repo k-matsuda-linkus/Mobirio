@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Plus, Ticket } from "lucide-react";
 import { VendorPageHeader } from "@/components/vendor/VendorPageHeader";
@@ -22,73 +22,14 @@ interface CouponRow {
   status: string;
 }
 
-const MOCK_COUPONS: CouponRow[] = [
-  {
-    id: "cpn-001",
-    code: "WELCOME10",
-    name: "初回10%OFFクーポン",
-    discount_type: "percentage",
-    discount_value: 10,
-    max_discount: 2000,
-    usage_limit: 100,
-    usage_count: 42,
-    valid_from: "2026-01-01",
-    valid_until: "2026-12-31",
-    status: "coupon_active",
-  },
-  {
-    id: "cpn-002",
-    code: "SUMMER500",
-    name: "夏季500円OFFクーポン",
-    discount_type: "fixed",
-    discount_value: 500,
-    max_discount: null,
-    usage_limit: 200,
-    usage_count: 200,
-    valid_from: "2026-06-01",
-    valid_until: "2026-08-31",
-    status: "coupon_exhausted",
-  },
-  {
-    id: "cpn-003",
-    code: "REPEAT1000",
-    name: "リピーター1000円OFF",
-    discount_type: "fixed",
-    discount_value: 1000,
-    max_discount: null,
-    usage_limit: null,
-    usage_count: 15,
-    valid_from: "2025-01-01",
-    valid_until: "2025-12-31",
-    status: "coupon_expired",
-  },
-  {
-    id: "cpn-004",
-    code: "NEWYEAR20",
-    name: "新年20%OFFクーポン",
-    discount_type: "percentage",
-    discount_value: 20,
-    max_discount: 3000,
-    usage_limit: 50,
-    usage_count: 0,
-    valid_from: "2027-01-01",
-    valid_until: "2027-01-31",
-    status: "coupon_scheduled",
-  },
-  {
-    id: "cpn-005",
-    code: "TEST300",
-    name: "テスト300円OFF",
-    discount_type: "fixed",
-    discount_value: 300,
-    max_discount: null,
-    usage_limit: 10,
-    usage_count: 3,
-    valid_from: "2026-01-01",
-    valid_until: "2026-12-31",
-    status: "coupon_disabled",
-  },
-];
+function deriveCouponStatus(c: { is_active?: boolean; usage_limit?: number | null; usage_count?: number; valid_from?: string; valid_until?: string }): string {
+  if (c.is_active === false) return "coupon_disabled";
+  const now = new Date().toISOString();
+  if (c.valid_from && now < c.valid_from) return "coupon_scheduled";
+  if (c.valid_until && now > c.valid_until) return "coupon_expired";
+  if (c.usage_limit && c.usage_count !== undefined && c.usage_count >= c.usage_limit) return "coupon_exhausted";
+  return "coupon_active";
+}
 
 function formatDiscount(coupon: CouponRow): React.ReactNode {
   if (coupon.discount_type === "fixed") {
@@ -172,7 +113,34 @@ const columns: VendorColumn<CouponRow>[] = [
 ];
 
 export default function VendorCouponsPage() {
-  const [coupons] = useState<CouponRow[]>(MOCK_COUPONS);
+  const [coupons, setCoupons] = useState<CouponRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/vendor/coupons")
+      .then((res) => (res.ok ? res.json() : Promise.reject("API error")))
+      .then((json) => {
+        setCoupons(
+          (json.data || []).map((c: Record<string, unknown>) => ({
+            id: c.id,
+            code: c.code,
+            name: c.name,
+            discount_type: c.discount_type,
+            discount_value: c.discount_value,
+            max_discount: c.max_discount ?? null,
+            usage_limit: c.usage_limit ?? null,
+            usage_count: c.usage_count ?? 0,
+            valid_from: typeof c.valid_from === "string" ? c.valid_from.slice(0, 10) : "",
+            valid_until: typeof c.valid_until === "string" ? c.valid_until.slice(0, 10) : "",
+            status: deriveCouponStatus(c as { is_active?: boolean; usage_limit?: number | null; usage_count?: number; valid_from?: string; valid_until?: string }),
+          }))
+        );
+      })
+      .catch((err) => console.error(err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="p-[24px]">読み込み中...</div>;
 
   return (
     <div>

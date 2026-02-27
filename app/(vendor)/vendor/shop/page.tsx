@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Search } from "lucide-react";
 import { VendorPageHeader } from "@/components/vendor/VendorPageHeader";
@@ -15,36 +15,6 @@ interface ShopRow {
   address: string;
   bikeCount: number;
 }
-
-const mockShops: ShopRow[] = [
-  {
-    id: "1",
-    corpCode: "C001",
-    branchNo: "01",
-    shopName: "サンシャインモータース宮崎本店",
-    prefecture: "宮崎県",
-    address: "宮崎市橘通東3-1-1",
-    bikeCount: 12,
-  },
-  {
-    id: "2",
-    corpCode: "C001",
-    branchNo: "02",
-    shopName: "サンシャインモータース鹿児島支店",
-    prefecture: "鹿児島県",
-    address: "鹿児島市中央町10-5",
-    bikeCount: 8,
-  },
-  {
-    id: "3",
-    corpCode: "C001",
-    branchNo: "03",
-    shopName: "サンシャインモータース熊本支店",
-    prefecture: "熊本県",
-    address: "熊本市中央区下通1-3-8",
-    bikeCount: 5,
-  },
-];
 
 const columns: VendorColumn<ShopRow>[] = [
   {
@@ -107,6 +77,41 @@ const columns: VendorColumn<ShopRow>[] = [
 
 export default function VendorShopListPage() {
   const [keyword, setKeyword] = useState("");
+  const [shops, setShops] = useState<ShopRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/vendor/shop")
+      .then((res) => (res.ok ? res.json() : Promise.reject("API error")))
+      .then((json) => {
+        const d = json.data;
+        if (Array.isArray(d)) {
+          setShops(d.map((v: Record<string, unknown>, i: number) => ({
+            id: (v.id as string) ?? String(i + 1),
+            corpCode: (v.business_id as string) ?? "",
+            branchNo: String(i + 1).padStart(2, "0"),
+            shopName: (v.name as string) ?? "",
+            prefecture: (v.prefecture as string) ?? "",
+            address: (v.address as string) ?? "",
+            bikeCount: 0,
+          })));
+        } else if (d) {
+          setShops([{
+            id: (d.id as string) ?? "1",
+            corpCode: (d.business_id as string) ?? "",
+            branchNo: "01",
+            shopName: (d.name as string) ?? "",
+            prefecture: (d.prefecture as string) ?? "",
+            address: (d.address as string) ?? "",
+            bikeCount: 0,
+          }]);
+        }
+      })
+      .catch((err) => console.error(err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="p-[24px]">読み込み中...</div>;
 
   return (
     <div>
@@ -131,7 +136,7 @@ export default function VendorShopListPage() {
         </div>
       </div>
 
-      <VendorDataTable columns={columns} data={mockShops} pageSize={20} />
+      <VendorDataTable columns={columns} data={shops} pageSize={20} />
     </div>
   );
 }

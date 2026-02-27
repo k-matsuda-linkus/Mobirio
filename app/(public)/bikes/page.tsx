@@ -1,6 +1,19 @@
+import type { Metadata } from 'next';
 import { mockBikes } from "@/lib/mock/bikes";
 import { mockVendors } from "@/lib/mock/vendors";
 import BikeCard from "@/components/bike/BikeCard";
+
+export const revalidate = 3600;
+
+export const metadata: Metadata = {
+  title: 'バイク一覧',
+  description: 'Mobirioで借りられるレンタルバイク一覧。EVスクーターから大型バイクまで多彩な車両をご用意しています。',
+  openGraph: {
+    title: 'バイク一覧 | Mobirio',
+    description: 'Mobirioで借りられるレンタルバイク一覧。EVスクーターから大型バイクまで。',
+    url: 'https://mobirio.jp/bikes',
+  },
+};
 
 export default function BikesPage() {
   return (

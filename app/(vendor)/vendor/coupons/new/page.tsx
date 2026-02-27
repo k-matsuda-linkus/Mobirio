@@ -78,8 +78,14 @@ export default function CouponNewPage() {
       valid_until: validUntil,
     };
 
-    console.log("クーポン作成データ:", formData);
-    router.push("/vendor/coupons");
+    fetch("/api/vendor/coupons", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData),
+    })
+      .then((res) => (res.ok ? res.json() : Promise.reject("API error")))
+      .then(() => router.push("/vendor/coupons"))
+      .catch(() => alert("作成に失敗しました"));
   };
 
   return (

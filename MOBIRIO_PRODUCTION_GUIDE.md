@@ -2,7 +2,7 @@
 
 **レンタルバイクプラットフォーム専用 - 本番環境対応ガイド**
 
-**最終更新: 2026年2月25日**
+**最終更新: 2026年2月27日**
 
 ---
 
@@ -2803,3 +2803,404 @@ Phase 0（認証・セキュリティ・基盤）、Phase 1（API実データ化
 - **`lib/mock/users.ts`**: MockUser型に`updated_at`追加、全ユーザーデータに`updated_at`追記
 - **`lib/auth/requireAuth.ts`**: `updated_at: mockUser.created_at`→`mockUser.updated_at`に修正
 - **`lib/booking/status.ts`**: `no_show`から`confirmed`への復帰遷移を追加
+
+### 2026-02-27（Phase 4: ベンダーダッシュボード実データ化）
+
+全ベンダーAPI（38本）にsandbox/Supabaseデュアルモードを整備し、全ベンダーダッシュボードページ（49ページ）をAPIフェッチに接続。3エージェント並列で実施。
+
+#### Agent A: 車両・オプション・料金（API 5本 + ページ 10本）
+
+**API修正:**
+- **`app/api/vendor/bikes/route.ts`** — requireVendor認証 + sandbox分岐（mockBikes vendor_idフィルタ）+ Supabase。GET: status/limitクエリ対応。POST: バリデーション + insert。
+- **`app/api/vendor/bikes/[id]/route.ts`** — GET/PUT/DELETE。DELETEは論理削除（is_available=false）。
+- **`app/api/vendor/options/route.ts`** — GET: mockOptions vendor_idフィルタ / Supabase。POST: バリデーション + insert。
+- **`app/api/vendor/options/[id]/route.ts`** — GET/PUT/DELETE フルCRUD。
+- **`app/api/vendor/pricing/route.ts`** — GET: DEFAULT_PRICINGをpricing_rules形式で返却 / Supabase。PUT: delete+insert方式。
+
+**ページAPI接続:**
+- **`vendor/bikes/page.tsx`** — ハードコードmockBikes削除 → useEffect+fetch。公開切替もAPIに接続。
+- **`vendor/bikes/archived/page.tsx`** — ハードコード削除 → fetch `?status=archived`。
+- **`vendor/bikes/new/page.tsx`** — alert → fetch POST `/api/vendor/bikes` + router.push。
+- **`vendor/bikes/[id]/edit/page.tsx`** — mockBikes import削除 → useEffect+fetch。保存→PUT、削除→DELETE。
+- **`vendor/options/page.tsx`** — ハードコード削除 → fetch `/api/vendor/options`。
+- **`vendor/options/new/page.tsx`** — console.log → fetch POST `/api/vendor/options`。
+- **`vendor/gear/page.tsx`** — ハードコード削除 → fetch `/api/vendor/options` → toGearRow変換。
+- **`vendor/gear/new/page.tsx`** — alert → fetch POST `/api/vendor/options`。
+- **`vendor/gear/[id]/page.tsx`** — ハードコード削除 → useEffect+fetch。保存→PUT、削除→DELETE。
+- **`vendor/pricing/page.tsx`** — 空onSubmit → fetch PUT `/api/vendor/pricing`。
+
+#### Agent B: 店舗・クーポン・お知らせ・レビュー・問合せ（API 14本 + ページ 18本）
+
+**API修正:**
+- **`app/api/vendor/shop/route.ts`** — Type A → requireVendor + sandbox mock + Supabase GET/PUT。
+- **`app/api/vendor/business-hours/route.ts`** — Type A → GET/PUT。PUT: 全削除→再挿入方式。DAY_MAPでday_of_week string→number変換。
+- **`app/api/vendor/holidays/route.ts`** — Type A → GET/POST/DELETE。
+- **`app/api/vendor/closures/route.ts`** — Type B → Supabase GET/POST追加。
+- **`app/api/vendor/closures/[id]/route.ts`** — Type B → Supabase DELETE追加。
+- **`app/api/vendor/coupons/route.ts`** — Type B → isSandboxMode分岐追加 + Supabase GET/POST。
+- **`app/api/vendor/coupons/[id]/route.ts`** — Type B → Supabase GET/PUT/DELETE追加。
+- **`app/api/vendor/announcements/route.ts`** — Type B → Supabase GET/POST追加。
+- **`app/api/vendor/announcements/[id]/route.ts`** — Type B → Supabase GET/PUT/DELETE追加。
+- **`app/api/vendor/shop-reviews/route.ts`** — Type B → Supabase GET追加。shop_reviewsスキーマに合わせてcontent/reply/posted_atフィールド使用。ratingフィールド削除。
+- **`app/api/vendor/shop-reviews/[id]/route.ts`** — Type B → Supabase GET/PUT追加。reply/reply_by/reply_atで返信記録。
+- **`app/api/vendor/inquiries/route.ts`** — Type B → Supabase GET/POST追加。
+- **`app/api/vendor/inquiries/[id]/route.ts`** — Type B → Supabase GET/PUT追加。
+- **`app/api/vendor/customers/route.ts`** — Type A → reservationsテーブルからuser_idを集計、usersテーブルJOINでユーザー情報取得。
+
+**ページAPI接続:**
+- **`vendor/shop/page.tsx`** — GET /api/vendor/shop
+- **`vendor/shop/[id]/page.tsx`** — GET/PUT /api/vendor/shop
+- **`vendor/business/page.tsx`** — GET/PUT business-hours + GET/POST/DELETE holidays
+- **`vendor/shop/closures/page.tsx`** — GET/POST /api/vendor/closures
+- **`vendor/coupons/page.tsx`** — GET /api/vendor/coupons
+- **`vendor/coupons/new/page.tsx`** — POST /api/vendor/coupons
+- **`vendor/coupons/[id]/edit/page.tsx`** — GET/PUT /api/vendor/coupons/[id]
+- **`vendor/announcements/page.tsx`** — GET /api/vendor/announcements
+- **`vendor/announcements/new/page.tsx`** — POST /api/vendor/announcements
+- **`vendor/announcements/[id]/page.tsx`** — GET/PUT /api/vendor/announcements/[id]
+- **`vendor/reviews/page.tsx`** — GET /api/vendor/shop-reviews
+- **`vendor/reviews/[id]/page.tsx`** — GET/PUT /api/vendor/shop-reviews/[id]
+- **`vendor/inquiries/page.tsx`** — GET /api/vendor/inquiries
+- **`vendor/inquiries/[id]/page.tsx`** — GET/PUT /api/vendor/inquiries/[id]
+- **`vendor/customers/page.tsx`** — GET /api/vendor/customers
+- **`vendor/settings/page.tsx`** — GET/PUT /api/vendor/shop
+- **`vendor/messages/page.tsx`** — GET/POST vendor inquiries API流用
+- **`vendor/notifications/page.tsx`** — GET /api/notifications
+
+#### Agent C: ダッシュボード・分析・レポート・出力・カレンダー（API 16本 + ページ 15本）
+
+**API修正:**
+- **`app/api/vendor/analytics/shop-pv/route.ts`** — Type B → Supabase page_views集計追加。pvListに明示的型キャスト。
+- **`app/api/vendor/analytics/bike-pv/route.ts`** — Type B → Supabase page_views集計追加。pvListに明示的型キャスト。
+- **`app/api/vendor/analytics/shop-performance/route.ts`** — Type B → Supabase reservations集計追加。RsvRow型定義+キャスト。
+- **`app/api/vendor/analytics/bike-performance/route.ts`** — Type B → Supabase reservations集計追加。RsvRow型定義+キャスト。
+- **`app/api/vendor/reports/sales/route.ts`** — Type A → reservationsから月別売上集計。
+- **`app/api/vendor/reports/customers/route.ts`** — Type A → reservations+usersから顧客分析。
+- **`app/api/vendor/reports/bikes/route.ts`** — Type A → bikes+reservationsから車両別実績。
+- **`app/api/vendor/reports/reservations/route.ts`** — Type A → reservationsからステータス別集計。
+- **`app/api/vendor/exports/insurance/route.ts`** — Type B → Supabase追加。
+- **`app/api/vendor/exports/rental-record/route.ts`** — Type B → Supabase追加。
+- **`app/api/vendor/exports/royalty/route.ts`** — Type B → Supabase追加。
+- **`app/api/vendor/exports/logs/route.ts`** — Type B → Supabase追加。
+- **`app/api/vendor/reservations/export/route.ts`** — Type B → Supabase追加。
+- **`app/api/vendor/reservations/[id]/memo/route.ts`** — Type B → Supabase追加。
+- **`app/api/vendor/reservations/[id]/mileage/route.ts`** — Type B → Supabase追加。
+- **`app/api/vendor/reservations/[id]/contract/route.ts`** — Type B → Supabase追加。
+
+**ページAPI接続:**
+- **`vendor/page.tsx`（ダッシュボード）** — 予約API + 売上APIで動的表示。
+- **`vendor/reservations/page.tsx`** — 予約一覧をAPIフェッチに変更。
+- **`vendor/reservations/[id]/page.tsx`** — 個別予約APIフェッチ + MOCKフォールバック。
+- **`vendor/calendar/page.tsx`** — bikes API + reservations APIで動的ガントチャート。
+- **`vendor/analytics/shop-pv/page.tsx`** — 前年/当年の2本APIフェッチ。
+- **`vendor/analytics/bike-pv/page.tsx`** — 車両別PVデータをAPI取得。
+- **`vendor/analytics/shop-performance/page.tsx`** — フィルターパラメータ付きAPI。
+- **`vendor/analytics/bike-performance/page.tsx`** — 車両別実績をAPI取得。
+- **`vendor/reports/sales/page.tsx`** — 月別売上取得。
+- **`vendor/reports/reservations/page.tsx`** — ステータス内訳・月次カウント取得。
+- **`vendor/reports/bikes/page.tsx`** — 車両別稼働率・予約数・売上取得。
+- **`vendor/reports/customers/page.tsx`** — 顧客数・リピート率・上位顧客取得。
+- **`vendor/exports/insurance/page.tsx`** — 年月パラメータで保険データ取得。
+- **`vendor/exports/royalty/page.tsx`** — 年月パラメータでロイヤリティ明細取得。
+- **`vendor/exports/logs/page.tsx`** — 期間パラメータでログ取得。
+
+**スキップしたもの（API不要）:**
+- `vendor/manual/page.tsx`（静的コンテンツ）
+- `vendor/campaigns/page.tsx`（プレースホルダー）
+- `vendor/reports/page.tsx`（リンク一覧のみ）
+- `vendor/exports/rental-record/page.tsx`（フォーム入力→Excel出力）
+
+#### 型エラー修正（全35件→0件）
+- analytics系4ファイル: Supabase `.select("*")` の `{}` 型 → explicit型キャスト追加
+- shop-reviews系2ファイル: DB スキーマ不一致修正（`rating`/`comment`/`vendor_reply` → `content`/`reply`/`posted_at`）
+- business-hours: `day_of_week` string→number変換、必須カラム追加
+- customers: Supabase JOIN結果の型キャスト追加
+- reservations/[id]/page.tsx: `??`と`||`演算子混在 → 括弧追加
+
+### 2026-02-27（Phase 4 バグチェック＆修正 — 全33ファイル）
+
+3エージェント並列バグチェック（API内部整合性・フロントエンド-API連携・横断的整合性）で計65件のバグを検出し、全件修正。`tsc --noEmit` エラー0件。
+
+#### CRITICAL修正（5件）
+
+- **API: reservations/route.ts** — `isSandboxMode()` チェック未実装でsandboxクラッシュ → mockReservationsフィルタ+サマリー集計のsandboxブロック追加
+- **API: reservations/[id]/route.ts** — 同上 → GET/PATCH両方にsandboxモード追加
+- **API: reservations/[id]/confirm/route.ts** — 常にモック返却、Supabase未実装 → sandbox/Supabase分離実装（予約取得→所有権確認→status=pending検証→confirmed更新）
+- **FE: analytics/bike-pv/page.tsx** — `curJson?.bikes` → `curJson?.data`、`curBike.data` → `curBike.periods`（APIレスポンス構造不一致）
+- **FE: analytics/bike-performance/page.tsx** — 同上 + `cur.value` → displayTypeに応じて `total_amount`/`reservation_count` を取得するgetValue関数追加
+
+#### HIGH API修正（7件）
+
+- **holidays/route.ts** — DBスキーマ不一致: mock/insert/bodyの `name` → `reason` に修正
+- **announcements/route.ts** — DBスキーマ不一致: `body` → `detail_html`、`is_published` 削除、`published_at` → `published_from`/`published_until`、`announcement_type` 追加
+- **announcements/[id]/route.ts** — 同上の修正をGET sandbox mock/PUT body型/sandbox response全箇所に適用
+- **inquiries/route.ts** — DBスキーマ不一致: mock/insertの `updated_at` → `replied_at`（pendingはnull、repliedは日時あり）
+- **inquiries/[id]/route.ts** — `updated_at` → `replied_at` + Supabase JOIN修正: `reservations(bike_name, user_name)` → `reservations(bike:bikes(id, name), user:users(id, full_name))`
+- **shop-reviews/[id]/route.ts** — Supabase JOIN: `reservations(bike_name)` → `reservations(bike:bikes(id, name))`（reservationsテーブルにbike_nameカラムなし）
+- **try-catch追加** — bikes POST, bikes/[id] PUT, options POST, options/[id] PUT, pricing PUT の5ファイルに `request.json()` のtry-catch追加
+
+#### HIGH フロントエンド修正（15件）
+
+- **reviews/page.tsx** — `r.comment`→`r.content`、`r.vendor_reply`→`r.reply`、`r.created_at`→`r.posted_at`
+- **reviews/[id]/page.tsx** — `d.comment`→`d.content`、`d.vendor_reply`→`d.reply`、PUT送信 `vendor_reply`→`reply`、MOCK参照→useRef+API値上書きに変更
+- **announcements/page.tsx** — `a.published_at`→`a.published_from`、`a.announcement_type` 動的読み取り
+- **announcements/new/page.tsx** — POST body: `body`→`detail_html`、`published_at`→`published_from`/`published_until`、`announcement_type` 追加
+- **announcements/[id]/page.tsx** — GET: `d.body`→`d.detail_html`、`d.published_at`→`d.published_from`。PUT: 同様の構造修正
+- **inquiries/[id]/page.tsx** — MOCK_INQUIRY直接参照→state変数化（customerName, reservationNo, vehicleName等）、予約リンクの固定ID→動的reservationId
+- **shop-performance/page.tsx** — `{ label, value }` 前提→displayTypeに応じてtotal_amount/reservation_countを取得するextractValue関数追加
+- **reports/reservations/page.tsx** — `reservationsByMonth`→`monthlyCounts`マッピング、個別ステータスカウント→`statusBreakdown`配列変換
+- **reports/bikes/page.tsx** — `utilizationRate`(0-1)→`avgUtilization`(%)変換、`mostPopularBike`→`topBike`マッピング
+- **reports/customers/page.tsx** — `repeatCustomerRate`(0-1)→`repeatRate`(%)変換、`averageSpent`→`avgSpend`マッピング
+- **exports/insurance/page.tsx** — `json.data`(オブジェクト)→`json.data.records`(配列)、フィールドマッピング追加
+- **exports/royalty/page.tsx** — 同上 + サマリーセクションを売上合計/ロイヤリティ(税別/税込)/差引額に更新
+- **exports/logs/page.tsx** — `user_email`→`loginId`、`ip_address`→`ipAddress`等のフィールドマッピング追加
+- **reservations/[id]/page.tsx** — `...MOCK_RESERVATION` スプレッド→`(prev) => ({...prev, ...})` 関数形式に変更、API値優先・モックフォールバック排除
+
+#### 型エラー修正（追加5件→0件）
+
+- bikes/route.ts: `.insert()` に `as any` キャスト追加（Record型のspread対応）
+- options/route.ts: 同上
+- reservations/[id]/route.ts: `mock.notes` → `(mock as any).notes`（Reservation型にnotesなし）
+- exports/royalty/page.tsx: `totalWebCreditExTax`/`totalWebCreditInTax` → `totalRoyaltyExTax`/`totalRoyaltyInTax`/`totalNet` に修正
+
+### 2026-02-27（Phase 4 追加バグチェック＆修正 — 13件）
+
+前回の65件修正後、未検証ページ・API呼び出しパス整合性・sandboxエッジケースの3観点で追加検証を実施。13件のバグを検出し全件修正。`tsc --noEmit` エラー0件。
+
+#### CRITICAL修正（4件）
+
+- **FE: analytics/shop-performance/page.tsx** — `dateCondition` state値がAPI許可値と不一致。`"reservation"`→`"start"`、`"departure"`→`"end"`、`"return"`→`"completed"` に修正（UIラベルはそのまま維持）。`paymentType` の `"free"` → `"unpaid"` に修正。初期値 `"reservation"` → `"start"` に修正。修正前はページ読み込み直後にAPIから400エラー返却。
+- **FE: analytics/bike-performance/page.tsx** — 同上。`dateCondition` と `paymentType` の値を shop-performance と同様に修正。
+
+#### HIGH修正（4件）
+
+- **API: shop-reviews/[id]/route.ts** — PUT で `is_published` フィールド未対応。body型を `{ reply?: string; is_published?: boolean }` に拡張。バリデーション条件を `reply === undefined && is_published === undefined` に修正。`updatePayload` に `is_published` を含める。`reply_by` を `vendor.name || vendor.id` → `vendor.id` に変更（DB Vendor型に `name` が存在しないケースへの対応）。
+- **API: inquiries/[id]/route.ts** — Supabase JOIN結果のキー名変換漏れ。`.select("*, reservations(...)")` は `reservations`（複数形）キーで返却されるが、フロントエンドは `reservation`（単数形）を期待。`const raw = data as Record<string, unknown>; const { reservations, ...rest } = raw; const inquiry = { ...rest, reservation: reservations };` で変換処理を追加。
+- **FE: notifications/page.tsx** — インターフェースに `created_at` フィールド未定義。`created_at: string` を追加、`timestamp` を optional に変更。表示箇所を `{n.timestamp}` → `{n.created_at || n.timestamp}` にフォールバック対応。
+- **FE: pricing/page.tsx** — `VendorPricingForm` に `vendorId="v-001"` がハードコード。prop削除、`VendorPricingForm` の `vendorId` を optional化。
+
+#### MEDIUM修正（5件）
+
+- **API: business-hours/route.ts** — Supabase GET レスポンス形式不一致。sandbox は曜日キーのオブジェクト形式 `{ monday: { open, close, closed }, ... }` を返すが、Supabase は配列で返却。Supabase パスに配列→オブジェクト変換処理を追加（`day_of_week` から曜日キーへのマッピング、デフォルト値 09:00-18:00）。
+- **API: reservations/[id]/route.ts** — sandbox PATCH で `body.notes === undefined` チェック欠落。本番パスにはバリデーションがあるがsandboxパスになかった。sandbox に同じバリデーション（400レスポンス）を追加。
+- **API: reservations/[id]/confirm/route.ts** — sandbox で `mockReservations` 存在チェック未実装。`mockReservations` import追加、予約の存在確認・`vendor_id` 所有権確認・`status === "pending"` チェックを追加（404/400エラー返却）。
+- **API: inquiries/route.ts** — `customer_name` フィールド未対応。sandbox: mockデータに `customer_name` を追加。Supabase: `.select("*")` → `.select("*, user:users(full_name)")` に変更、レスポンスマッピングで `customer_name: row.user?.full_name || null` を付与。
+- **API: shop-reviews/[id]/route.ts** — sandbox PUT レスポンスに `is_published` と `reply_by` を反映（MEDIUM分の追加修正、HIGH修正と合わせて完了）。
+
+### 2026-02-27（Phase 4 深層バグチェック＆修正 — 4件）
+
+4エージェント並列検証（DBスキーマ突合・FE state/API型整合・CRUDフロー整合・コンポーネントprops整合）を実施。偽陽性を除外後、実バグ4件を修正。`tsc --noEmit` エラー0件。
+
+#### CRITICAL修正（2件）
+
+- **API: vendor/reservations/route.ts** — 予約一覧APIのSupabaseパスでJOIN結果がネスト構造（`bike: {name: "..."}`, `user: {full_name: "..."}`）のまま返されていたが、FEはフラットフィールド（`bike_name`, `user_name`, `store_name`）を期待。Supabaseパスにフラット化処理を追加（`bike.name→bike_name`, `user.full_name→user_name`, `vendor.name→store_name`）。sandboxパスでも`mockUsers`/`mockBikes`/`mockVendors`からフラットフィールドを付与。
+- **API: vendor/reservations/[id]/route.ts** — 予約詳細APIも同様にネスト構造をフラット化。加えて`payment`（単数alias）を`payments`（配列）に変換してFEの期待に合わせた。sandboxパスにも`bike_name`, `user_name`, `store_name`, `registration_number`, `chassis_number`, `payments`を付与。
+
+#### MEDIUM修正（2件）
+
+- **FE: vendor/reservations/page.tsx** — `/vendor/reservations/new` へのデッドリンク（404）。ベンダー側での予約新規作成は未実装（予約はユーザー側フロー）のため、「新規」ボタンを非表示に。未使用の`Plus`アイコンimportも削除。
+- **API: vendor/shop-reviews/route.ts** — POST sandboxレスポンスに `reply_by`, `reply_at`, `is_published` フィールドが欠落。DBスキーマに合わせて3フィールドを追加（`reply_by: null`, `reply_at: null`, `is_published: false`）。
+
+### 2026-02-27（Phase 4 データソース整合性検証＆修正 — 2件）
+
+「本来取りに行くべきデータソースではなく、間違った場所を参照しているバグ」を検出する2エージェント検証（モック直接import検出・fetch先URL vs 実API存在検証）を実施。偽陽性・既修正済みを除外後、実バグ2件を修正。`tsc --noEmit` エラー0件。
+
+#### MEDIUM修正（1件）
+
+- **FE: vendor/settings/page.tsx** — 店舗基本情報の初期値に架空ダミーデータ（"湘南バイクス", "0466-12-3456" 等）がハードコード。APIが空値/nullを返すケースで、ダミーデータが表示されそのまま保存されるリスク。全初期値を空文字 `""` に変更。
+
+#### LOW修正（1件）
+
+- **FE: vendor/reviews/page.tsx** — テーブルに「店舗名」列があるが、`storeName` が常に空文字 `""` でAPI（shop-reviews）から店舗名が返されないため全行空欄。`/api/vendor/shop` を並行フェッチして `vendor.name` を取得し、全レビュー行の `storeName` に設定。
+
+### 2026-02-27（Phase 5 管理者ダッシュボード実データ化 — 21タスク）
+
+管理者ダッシュボードの7つのモック返却APIをSupabase接続し、8つのフロントエンドページをAPI連携に切り替え。RBAC基盤を構築。
+
+#### 5-1 RBAC基盤（4タスク）
+
+- **DB**: `admins` テーブル新規作成（`supabase/migrations/20260227_create_admins_table.sql`）
+  - email UNIQUE, role CHECK('super_admin','admin','moderator'), RLS有効化
+- **DB**: `contact_inquiries` テーブル新規作成（`supabase/migrations/20260227_create_contact_inquiries.sql`）
+  - name, email, phone, subject, content, reply, status CHECK, replied_at
+- **型定義**: `types/database.ts` に `admins`, `contact_inquiries` テーブル型 + `Admin`, `AdminRole`, `ContactInquiry`, `ContactInquiryStatus` エイリアス追加
+- **RBAC**: `lib/admin.ts` 全面書き換え
+  - `AdminRole` 3層: super_admin (L3) / admin (L2) / moderator (L1)
+  - `PERMISSION_MATRIX`: 13権限（dashboard:view, users:ban, vendors:approve, settings:edit 等）
+  - `hasPermission()`, `getPermissions()` 判定関数
+  - `isAdminAsync()` 二重チェック（環境変数 `ADMIN_EMAILS` + DB `admins` テーブル）
+  - `checkBan()` BAN判定、`enforceMinDelay()` タイミング攻撃防止
+- **認証**: `lib/auth/requireAuth.ts` — `AdminAuthResult` に `adminRole` フィールド追加、本番モードで `isAdminAsync()` 二重チェック
+- **API**: `/api/admin/check` 新規作成（`enforceMinDelay` 200ms最低遅延、`{ isAdmin, role, permissions[] }` レスポンス）
+
+#### 5-2 API Supabase化（7タスク）
+
+全APIに `requireAdmin(request)` 認証追加、sandbox分岐維持 + else分岐にSupabaseクエリ追加。
+
+- **API**: `/api/admin/stats` — `Promise.all` で9並列カウント（reservations今月/先月, payments今月/先月, vendors, users, bikes, reviews）、変化率計算
+- **API**: `/api/admin/vendors` — GET: vendors+users JOIN+bikesカウント+フィルタ+ページネーション、PUT: approve/ban/activate
+- **API**: `/api/admin/users` — GET: users+フィルタ+ページネーション、PUT: ban(banned_at,banned_reason)/unban
+- **API**: `/api/admin/inquiries` — GET: contact_inquiries+ステータスフィルタ+ページネーション、PUT: status更新+reply+replied_at
+- **API**: `/api/admin/reviews` — GET: reviews+bikes/vendors/users JOIN+評価フィルタ、PUT: show(is_published=true)/hide(is_published=false)
+- **API**: `/api/admin/reports` — 期間パラメータで reservations+payments 取得、日別売上/ステータス別/トップバイク・ベンダーランキング集計
+- **API**: `/api/admin/settings` — GET: system_settings→key-value→オブジェクト変換、PUT: 許可キー検証→upsert
+
+#### 5-3 新規API（2タスク）
+
+- **API**: `/api/admin/vendors/[id]` 新規作成 — 4並列取得（vendor詳細, bikes, reservations, payments集計）
+- **API**: `/api/admin/users/[id]` 新規作成 — 2並列取得（user詳細, reservations+bikes/vendors JOIN）
+
+#### 5-4 フロントエンドAPI連携（8タスク）
+
+全ページをモック直接import → `useEffect` + `fetch` + `useState` + ローディング状態に切り替え。
+
+- **FE**: `dashboard/page.tsx` — 3API並列（stats, reservations?limit=5, vendors?is_approved=false）、モック6import削除
+- **FE**: `dashboard/vendors/page.tsx` — API連携（GET+フィルタ、PUT承認/BAN/有効化）、モック5import削除
+- **FE**: `dashboard/vendors/[id]/page.tsx` — Client Component化、`/api/admin/vendors/[id]` 連携、アクション操作追加
+- **FE**: `dashboard/users/page.tsx` — API連携（GET+フィルタ、PUT BAN/解除）、モック2import削除
+- **FE**: `dashboard/users/[id]/page.tsx` — Client Component化、`/api/admin/users/[id]` 連携、BAN操作追加
+- **FE**: `dashboard/reviews/page.tsx` — API連携（GET+評価フィルタ、PUT公開/非公開）、ローカル状態→API連動
+- **FE**: `dashboard/inquiries/page.tsx` — API連携（GET+ステータスフィルタ、PUT返信+ステータス更新）、返信UI強化
+- **FE**: `dashboard/reports/page.tsx` — API連携（GET+期間パラメータ）、モック3import削除
+
+### 2026-02-27（Phase 0 残タスク — 基盤整備6項目）
+
+Phase 0 の未完了残タスク6件を一括実装。RLS・Storage・middleware認証・開発ツールの基盤を整備。
+
+#### Task 1: RLSポリシー一括マイグレーション
+- **新規**: `supabase/migrations/20260227_rls_policies.sql`
+  - ヘルパー関数 `get_my_vendor_id()` 作成（`SECURITY DEFINER`、自分の vendor_id 取得）
+  - 22テーブルにRLSポリシー設定（users, vendors, bikes, bike_images, options, bike_options, pricing_rules, reservations, reservation_options, reviews, shop_reviews, favorites, messages, notifications, vendor_business_hours, vendor_holidays, vendor_closures, vendor_announcements, vendor_inquiries, vendor_payouts, page_views, system_settings）
+  - admin操作は service_role 経由でRLSバイパス
+
+#### Task 2: 重複防止インデックス + banned_usersテーブル
+- **新規**: `supabase/migrations/20260227_indexes_and_banned_users.sql`
+  - `idx_favorites_user_bike` UNIQUE INDEX（お気に入り重複防止）
+  - `idx_reviews_user_bike` UNIQUE INDEX（レビュー重複防止）
+  - `banned_users` テーブル作成（id, email, reason, banned_by, created_at）
+  - `idx_banned_users_email` UNIQUE INDEX
+  - RLS有効化（service_role のみ）
+- **修正**: `types/database.ts` — `banned_users` テーブル型 + `BannedUser` エイリアス追加
+
+#### Task 3: Storageバケット作成マイグレーション
+- **新規**: `supabase/migrations/20260227_storage_buckets.sql`
+  - 5バケット作成: `bike-images`（公開）, `vendor-logos`（公開）, `vendor-covers`（公開）, `user-avatars`（公開）, `contracts`（非公開）
+  - Storage RLSポリシー: 公開バケットは誰でも読取+ベンダーのみ書込、`user-avatars`は所有者のみ削除、`contracts`は認証済み+ベンダーのみ書込
+
+#### Task 4: middlewareセッション管理の有効化
+- **修正**: `middleware.ts` — コメントアウトされていたセッションチェックを完全実装
+  - `@supabase/ssr` の `createServerClient` でセッション自動更新（Cookie読み書き）
+  - 公開パス定義（`/`, `/login`, `/register`, `/bikes`, `/vendors` 等）
+  - 保護パスプレフィックス（`/mypage`, `/vendor`, `/dashboard`）
+  - `/vendor` と `/vendors` のパス衝突回避（厳密マッチ: `pathname === prefix || pathname.startsWith(prefix + '/')`）
+  - APIルートはスルー（各API内で requireAuth 等で個別チェック済み）
+  - 未認証→ `/login?redirect=<元のパス>` リダイレクト
+
+#### Task 5: ブラウザクライアントのダブルキャッシュ
+- **修正**: `lib/supabase/client.ts` — window + module変数の二重キャッシュ
+  - `__mobirio_supabase` キーで `window` オブジェクトにキャッシュ（HMR重複防止）
+  - モジュール変数 `moduleClient` でバックアップキャッシュ
+
+#### Task 6: Husky + lint-staged セットアップ
+- **新規**: `.husky/pre-commit` — `npx lint-staged` + `npx tsc --noEmit`
+- **修正**: `package.json` — `husky`, `lint-staged` devDependencies追加、`lint-staged` 設定追加（`*.{ts,tsx}` に `eslint --fix` + `prettier --write`）、`prepare` スクリプト追加
+
+### 2026-02-27（Phase 6: 画像・ストレージ実装）
+
+プレースホルダー（"No Image"）表示だった全画像を、Supabase Storage 経由の実画像アップロード・表示に切り替え。
+
+#### Task 1: Storage ヘルパー完全実装
+- **修正**: `lib/supabase/storage.ts` — TODO スタブを Supabase Storage SDK で完全実装
+  - `uploadFile()`: `createAdminSupabaseClient()` で RLS バイパス、`upsert: true` で上書き対応
+  - `deleteFile()` / `deleteFiles()`: 単一・複数ファイル削除
+  - `getPublicUrl()`: 環境変数から URL を組み立て（`NEXT_PUBLIC_SUPABASE_URL` 未設定時はプレースホルダー）
+  - `createSignedUrl()`: 非公開バケット用の署名付き URL 生成（デフォルト1時間有効）
+
+#### Task 2: 画像アップロード API
+- **新規**: `app/api/upload/route.ts` — multipart/form-data で画像受け取り
+  - POST: `file`, `bucket`, `path` パラメータ。MIME検証（JPEG/PNG/WebP/GIF）、10MB上限
+  - DELETE: `{ bucket, path }` で Storage ファイル削除
+  - 認証: ベンダー系バケット → `requireVendor`、user-avatars → `requireAuth`
+  - Sandbox: ファイルを受け取るがアップロードせず、プレースホルダー URL 返却
+
+#### Task 3: 署名付き URL API
+- **新規**: `app/api/attachments/signed-url/route.ts` — contracts バケット用
+  - POST: `{ bucket, path }` → `createSignedUrl()` で1時間有効 URL 返却
+  - 認証: `requireAuth` + contracts バケット限定チェック
+
+#### Task 4: FileUploader コンポーネント強化
+- **修正**: `components/ui/FileUploader.tsx` — ローカルプレビュー → 実アップロード対応
+  - 新 prop: `bucket`, `pathPrefix`, `onUpload`
+  - ドラッグ＆ドロップ対応（`onDragOver`, `onDragLeave`, `onDrop`）
+  - `bucket` 指定時は `/api/upload` へ FormData 送信、未指定時は従来の `URL.createObjectURL`
+  - アップロード中スピナー（Loader2）
+  - 削除時に Storage URL からパス抽出 → `/api/upload` DELETE で Storage 側も削除
+  - 画像ドラッグ並び替え対応（GripVertical アイコン）
+
+#### Task 5: バイク登録・編集フォームの画像アップロード接続
+- **修正**: `app/(vendor)/vendor/bikes/new/page.tsx`
+  - 車両画像: `FileUploader` に `bucket="bike-images"`, `pathPrefix="new"` 追加
+  - 車検証: `FileUploader` に `bucket="contracts"`, `pathPrefix="inspections"` 追加
+- **修正**: `app/(vendor)/vendor/bikes/[id]/edit/page.tsx`
+  - 車両画像: `bucket="bike-images"`, `pathPrefix={bikeId}` 追加
+  - 車検証: `bucket="contracts"`, `pathPrefix={`inspections/${bikeId}`}` 追加
+  - 他社保険証: `bucket="contracts"`, `pathPrefix={`insurance/${bikeId}`}` 追加
+
+#### Task 6: 店舗設定の画像アップロード接続
+- **修正**: `app/(vendor)/vendor/shop/[id]/page.tsx`
+  - ロゴ画像セクション追加: `bucket="vendor-logos"`, `pathPrefix={shopId}`, maxFiles=1
+  - カバー画像セクション追加: `bucket="vendor-covers"`, `pathPrefix={shopId}`, maxFiles=1
+  - 店舗画像ギャラリー: `bucket="vendor-covers"`, `pathPrefix={shopId}/gallery`
+  - 保存時に `logo_url`, `cover_image_url` を API 送信に追加
+
+#### Task 7: ユーザーアバターアップロード追加
+- **修正**: `app/(user)/mypage/settings/page.tsx`
+  - プロフィールセクションにアバター画像アップロード追加
+  - `FileUploader` + `bucket="user-avatars"`, `pathPrefix={userId}`, maxFiles=1
+  - API レスポンスの `avatar_url` を初期値として設定
+  - 保存時に `avatar_url` を PATCH リクエストに追加
+
+#### Task 8: 公開ページの画像表示実装
+- **修正**: `app/(public)/bikes/[id]/page.tsx`
+  - メイン画像: `image_urls` があれば `BikeGallery` で表示、なければ "No Image" フォールバック
+  - 関連バイクカード: `next/image` で画像表示対応
+- **新規**: `app/(public)/bikes/[id]/BikeGallery.tsx` — クライアントコンポーネント
+  - メイン画像（`priority` + `fill` + `object-cover`）+ サムネイルギャラリー（クリックで切替）
+- **修正**: `app/(public)/vendors/[id]/page.tsx`
+  - カバー画像: `cover_image_url` があれば `next/image` で表示
+  - ロゴ: `logo_url` があれば店舗名横に表示
+  - バイクカード: `image_urls` 対応
+
+### 2026-02-27（Phase 7: SEO・パフォーマンス実装）
+
+全公開ページにSEO構造化データ・OGPメタデータ・ISR revalidate設定を追加。サイトマップ・robots.txtを新規作成。
+
+#### Task 7-1: 構造化データ（JSON-LD）
+- **修正**: `app/(public)/bikes/[id]/page.tsx` — `Product` スキーマ追加（name, brand, image, offers with price/currency/availability）+ `BreadcrumbList`（TOP > バイク一覧 > バイク名）
+- **修正**: `app/(public)/vendors/[id]/page.tsx` — `LocalBusiness` スキーマ追加（name, description, address, geo, telephone, email, url, image）+ `BreadcrumbList`（TOP > ショップ一覧 > ショップ名）
+- **修正**: `app/(public)/faq/page.tsx` — `FAQPage` スキーマ追加（全8件のQ&Aを `mainEntity` 配列で出力）
+
+#### Task 7-2: OGP・メタデータ強化
+- **修正**: `app/(public)/bikes/[id]/page.tsx` — `generateMetadata` を強化: `Metadata` 型付き返却、`description`（バイク説明文またはスペック自動生成）、`openGraph`（title/description/url/images）、`twitter`（card/title/description/images）
+- **修正**: `app/(public)/vendors/[id]/page.tsx` — `generateMetadata` を強化: `description`（店舗説明文または所在地自動生成）、`openGraph`、`twitter`
+- **修正**: `app/(public)/faq/page.tsx` — `metadata` export 追加（title/description/openGraph）
+- **修正**: `app/(public)/about/page.tsx` — `metadata` export 追加（title/description/openGraph）
+- **修正**: `app/(public)/bikes/page.tsx` — `metadata` export 追加（title/description/openGraph）
+- **修正**: `app/(public)/vendors/page.tsx` — `metadata` export 追加（title/description/openGraph）
+
+#### Task 7-3: サイトマップ・robots
+- **新規**: `app/sitemap.ts` — 動的サイトマップ生成
+  - 静的ページ6件（TOP/bikes/vendors/about/faq/contact）、バイク詳細（`is_published` フィルタ）、ベンダー詳細（`is_active && is_approved` フィルタ）
+  - `changeFrequency` + `priority` 設定（TOP: 1.0, 一覧: 0.9, バイク詳細: 0.8, ベンダー: 0.7, 静的: 0.4-0.5）
+- **新規**: `app/robots.ts` — robots.txt
+  - Allow: `/`、Disallow: `/vendor/`, `/dashboard/`, `/mypage/`, `/api/`, `/book/`
+  - sitemap: `https://mobirio.jp/sitemap.xml`
+
+#### Task 7-4: パフォーマンス（ISR revalidate）
+- **修正**: `app/(public)/page.tsx` — `revalidate = 3600`（1時間）
+- **修正**: `app/(public)/bikes/page.tsx` — `revalidate = 3600`（1時間）
+- **修正**: `app/(public)/bikes/[id]/page.tsx` — `revalidate = 3600`（1時間）
+- **修正**: `app/(public)/vendors/page.tsx` — `revalidate = 3600`（1時間）
+- **修正**: `app/(public)/vendors/[id]/page.tsx` — `revalidate = 3600`（1時間）
+- **修正**: `app/(public)/faq/page.tsx` — `revalidate = 86400`（24時間）
+- **修正**: `app/(public)/about/page.tsx` — `revalidate = 86400`（24時間）

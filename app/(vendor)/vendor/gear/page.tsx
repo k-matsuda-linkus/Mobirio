@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Search, Download, Plus, GripVertical, Copy, HardHat } from "lucide-react";
 import { VendorPageHeader } from "@/components/vendor/VendorPageHeader";
@@ -27,74 +27,21 @@ const mockStores = [
   { id: "s-002", name: "鹿児島支店" },
 ];
 
-const mockGear: GearRow[] = [
-  {
-    id: "1",
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function toGearRow(opt: any, index: number): GearRow {
+  return {
+    id: opt.id,
     storeName: "宮崎本店",
-    gearTypeName: "ヘルメット（ジェット）",
-    size: "S",
-    comment: "OGK KABUTO EXCEED ジェットヘルメット。軽量で快適な装着感。",
-    displayOrder: 1,
-    createdAt: "2025-08-15 10:00",
-    hasReservation: true,
-    publishStatus: "published",
-  },
-  {
-    id: "2",
-    storeName: "宮崎本店",
-    gearTypeName: "ヘルメット（ジェット）",
-    size: "M",
-    comment: "SHOEI J-Cruise IIジェットヘルメット。インナーサンバイザー付き。",
-    displayOrder: 2,
-    createdAt: "2025-08-15 10:05",
-    hasReservation: true,
-    publishStatus: "published",
-  },
-  {
-    id: "3",
-    storeName: "宮崎本店",
-    gearTypeName: "リアケース",
+    gearTypeName: opt.name ?? "",
     size: "フリー",
-    comment: "GIVI モノロックケース E300N2 30L。ワンタッチ着脱可能。",
-    displayOrder: 3,
-    createdAt: "2025-09-01 14:30",
+    comment: opt.description ?? "",
+    displayOrder: opt.sort_order ?? index + 1,
+    createdAt: opt.created_at ?? "",
     hasReservation: false,
-    publishStatus: "published",
-  },
-  {
-    id: "4",
-    storeName: "鹿児島支店",
-    gearTypeName: "グローブ",
-    size: "M",
-    comment: "RSタイチ メッシュグローブ。夏場の快適なライディングに最適。通気性抜群。",
-    displayOrder: 4,
-    createdAt: "2025-09-10 09:00",
-    hasReservation: false,
-    publishStatus: "published",
-  },
-  {
-    id: "5",
-    storeName: "鹿児島支店",
-    gearTypeName: "ジャケット",
-    size: "L",
-    comment: "コミネ プロテクトメッシュジャケット。CE規格プロテクター装備。",
-    displayOrder: 5,
-    createdAt: "2025-10-01 11:00",
-    hasReservation: true,
-    publishStatus: "unpublished",
-  },
-  {
-    id: "6",
-    storeName: "宮崎本店",
-    gearTypeName: "ヘルメット（フルフェイス）",
-    size: "L",
-    comment: "SHOEI Z-8 フルフェイスヘルメット。軽量コンパクト設計。",
-    displayOrder: 6,
-    createdAt: "2025-10-15 16:00",
-    hasReservation: false,
-    publishStatus: "published",
-  },
-];
+    publishStatus: opt.is_active ? "published" : "unpublished",
+  };
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 function useGearColumns(onDuplicate: (item: GearRow) => void): VendorColumn<GearRow>[] {
   return [
@@ -187,7 +134,19 @@ function useGearColumns(onDuplicate: (item: GearRow) => void): VendorColumn<Gear
 
 export default function VendorGearListPage() {
   const [selectedStore, setSelectedStore] = useState("all");
-  const [gearList, setGearList] = useState<GearRow[]>(mockGear);
+  const [gearList, setGearList] = useState<GearRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/vendor/options")
+      .then((res) => (res.ok ? res.json() : Promise.reject("API error")))
+      .then((json) => {
+        const rows = (json.data || []).map(toGearRow);
+        setGearList(rows);
+      })
+      .catch((err) => console.error("ギア一覧の取得に失敗:", err))
+      .finally(() => setLoading(false));
+  }, []);
 
   const handleDuplicate = (item: GearRow) => {
     const newId = String(Date.now());
@@ -207,6 +166,8 @@ export default function VendorGearListPage() {
   };
 
   const columns = useGearColumns(handleDuplicate);
+
+  if (loading) return <div className="p-[24px]">読み込み中...</div>;
 
   return (
     <div>

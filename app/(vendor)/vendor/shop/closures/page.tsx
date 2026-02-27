@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight, X, Trash2 } from "lucide-react";
 import { VendorPageHeader } from "@/components/vendor/VendorPageHeader";
 
@@ -9,18 +9,6 @@ interface ClosureEntry {
   date: string;
   reason: string;
 }
-
-const existingClosures: ClosureEntry[] = [
-  { id: "c-1", date: "2026-01-01", reason: "年始休業" },
-  { id: "c-2", date: "2026-01-02", reason: "年始休業" },
-  { id: "c-3", date: "2026-01-03", reason: "年始休業" },
-  { id: "c-4", date: "2026-05-03", reason: "GW臨時休業" },
-  { id: "c-5", date: "2026-05-04", reason: "GW臨時休業" },
-  { id: "c-6", date: "2026-05-05", reason: "GW臨時休業" },
-  { id: "c-7", date: "2026-08-13", reason: "お盆休み" },
-  { id: "c-8", date: "2026-08-14", reason: "お盆休み" },
-  { id: "c-9", date: "2026-08-15", reason: "お盆休み" },
-];
 
 function getDaysInMonth(year: number, month: number): number {
   return new Date(year, month + 1, 0).getDate();
@@ -39,7 +27,24 @@ export default function ShopClosuresPage() {
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [selectedDates, setSelectedDates] = useState<Map<string, string>>(new Map());
-  const [closures, setClosures] = useState<ClosureEntry[]>(existingClosures);
+  const [closures, setClosures] = useState<ClosureEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/vendor/closures")
+      .then((res) => (res.ok ? res.json() : Promise.reject("API error")))
+      .then((json) => {
+        setClosures(
+          (json.data || []).map((c: { id: string; closure_date: string; reason: string | null }) => ({
+            id: c.id,
+            date: c.closure_date,
+            reason: c.reason ?? "",
+          }))
+        );
+      })
+      .catch((err) => console.error(err))
+      .finally(() => setLoading(false));
+  }, []);
 
   const daysInMonth = getDaysInMonth(currentYear, currentMonth);
   const firstDayOfWeek = getFirstDayOfWeek(currentYear, currentMonth);
@@ -91,18 +96,35 @@ export default function ShopClosuresPage() {
     });
   };
 
-  const handleBulkRegister = () => {
-    const newClosures: ClosureEntry[] = [];
-    selectedDates.forEach((reason, date) => {
-      newClosures.push({ id: `c-new-${date}`, date, reason });
-    });
-    setClosures((prev) => [...prev, ...newClosures]);
+  const handleBulkRegister = async () => {
+    const entries = Array.from(selectedDates.entries());
+    const results: ClosureEntry[] = [];
+    for (const [date, reason] of entries) {
+      try {
+        const res = await fetch("/api/vendor/closures", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ closure_date: date, reason: reason || null }),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          results.push({ id: json.data.id, date: json.data.closure_date, reason: json.data.reason ?? "" });
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    setClosures((prev) => [...prev, ...results]);
     setSelectedDates(new Map());
-    alert(`${newClosures.length}件の休業日を登録しました`);
+    alert(`${results.length}件の休業日を登録しました`);
   };
 
   const deleteClosure = (id: string) => {
-    setClosures((prev) => prev.filter((c) => c.id !== id));
+    fetch(`/api/vendor/closures/${id}`, { method: "DELETE" })
+      .then((res) => {
+        if (res.ok) setClosures((prev) => prev.filter((c) => c.id !== id));
+      })
+      .catch((err) => console.error(err));
   };
 
   const isExistingClosure = (dateStr: string) => {
@@ -120,6 +142,8 @@ export default function ShopClosuresPage() {
   for (let d = 1; d <= daysInMonth; d++) {
     calendarCells.push(d);
   }
+
+  if (loading) return <div className="p-[24px]">読み込み中...</div>;
 
   return (
     <div>

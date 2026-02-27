@@ -1,62 +1,61 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireVendor } from "@/lib/auth/requireAuth";
+import { isSandboxMode, sandboxLog } from "@/lib/sandbox";
 
-/**
- * GET /api/vendor/shop-reviews/[id]
- * Get a single shop review by ID.
- */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
   const authResult = await requireVendor(request);
-  if (authResult instanceof NextResponse) {
-    return authResult;
+  if (authResult instanceof NextResponse) return authResult;
+  const { vendor, supabase } = authResult;
+
+  if (isSandboxMode()) {
+    sandboxLog("GET /api/vendor/shop-reviews/[id]", `vendor=${vendor.id}, id=${id}`);
+    return NextResponse.json({
+      data: {
+        id, vendor_id: vendor.id, reservation_id: "res_010", user_id: "user_001",
+        nickname: "田中太郎",
+        content: "とても親切な対応でした。バイクの状態も良好です。",
+        reply: null, reply_by: null, reply_at: null,
+        is_published: true, posted_at: "2025-01-12T14:00:00Z",
+        reservations: {
+          id: "res_010", start_datetime: "2025-01-10T09:00:00Z", end_datetime: "2025-01-11T18:00:00Z",
+          bike: { id: "bike-001", name: "PCX 160" },
+        },
+      },
+      message: "OK",
+    });
   }
 
-  const { vendor } = authResult;
+  const { data, error } = await supabase
+    .from("shop_reviews")
+    .select("*, reservations(id, start_datetime, end_datetime, bike:bikes(id, name))")
+    .eq("id", id)
+    .eq("vendor_id", vendor.id)
+    .single();
 
-  // TODO: Replace with Supabase query once schema is applied
-  const mockReview = {
-    id,
-    vendor_id: vendor.id,
-    reservation_id: "res_010",
-    user_id: "user_001",
-    user_name: "田中太郎",
-    rating: 5,
-    comment: "とても親切な対応でした。バイクの状態も良好です。",
-    vendor_reply: null,
-    created_at: "2025-01-12T14:00:00Z",
-    updated_at: "2025-01-12T14:00:00Z",
-    reservation: {
-      id: "res_010",
-      bike_name: "PCX 160",
-      start_datetime: "2025-01-10T09:00:00Z",
-      end_datetime: "2025-01-11T18:00:00Z",
-    },
-  };
+  if (error || !data) {
+    return NextResponse.json(
+      { error: "Not found", message: "レビューが見つかりません" },
+      { status: 404 }
+    );
+  }
 
-  return NextResponse.json({ data: mockReview, message: "OK" });
+  return NextResponse.json({ data, message: "OK" });
 }
 
-/**
- * PUT /api/vendor/shop-reviews/[id]
- * Update vendor reply on a review.
- */
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
   const authResult = await requireVendor(request);
-  if (authResult instanceof NextResponse) {
-    return authResult;
-  }
+  if (authResult instanceof NextResponse) return authResult;
+  const { vendor, supabase } = authResult;
 
-  const { vendor } = authResult;
-
-  let body: { vendor_reply?: string };
+  let body: { reply?: string; is_published?: boolean };
   try {
     body = await request.json();
   } catch {
@@ -66,28 +65,53 @@ export async function PUT(
     );
   }
 
-  if (body.vendor_reply === undefined) {
+  if (body.reply === undefined && body.is_published === undefined) {
     return NextResponse.json(
-      { error: "Bad request", message: "vendor_reply は必須です" },
+      { error: "Bad request", message: "reply または is_published は必須です" },
       { status: 400 }
     );
   }
 
-  // TODO: Replace with Supabase update once schema is applied
-  const updated = {
-    id,
-    vendor_id: vendor.id,
-    reservation_id: "res_010",
-    user_id: "user_001",
-    rating: 5,
-    comment: "とても親切な対応でした。バイクの状態も良好です。",
-    vendor_reply: body.vendor_reply,
-    created_at: "2025-01-12T14:00:00Z",
-    updated_at: new Date().toISOString(),
-  };
+  const now = new Date().toISOString();
 
-  return NextResponse.json({
-    data: updated,
-    message: "返信を更新しました",
-  });
+  if (isSandboxMode()) {
+    sandboxLog("PUT /api/vendor/shop-reviews/[id]", `vendor=${vendor.id}, id=${id}`);
+    return NextResponse.json({
+      data: {
+        id, vendor_id: vendor.id, reservation_id: "res_010", user_id: "user_001",
+        nickname: "田中太郎",
+        content: "とても親切な対応でした。バイクの状態も良好です。",
+        reply: body.reply ?? null, reply_by: body.reply !== undefined ? (vendor.name || vendor.id) : null, reply_at: body.reply !== undefined ? now : null,
+        is_published: body.is_published !== undefined ? body.is_published : true, posted_at: "2025-01-12T14:00:00Z",
+      },
+      message: "レビューを更新しました",
+    });
+  }
+
+  const updatePayload: Record<string, unknown> = {};
+  if (body.reply !== undefined) {
+    updatePayload.reply = body.reply;
+    updatePayload.reply_by = vendor.name || vendor.id;
+    updatePayload.reply_at = now;
+  }
+  if (body.is_published !== undefined) {
+    updatePayload.is_published = body.is_published;
+  }
+
+  const { data, error } = await supabase
+    .from("shop_reviews")
+    .update(updatePayload)
+    .eq("id", id)
+    .eq("vendor_id", vendor.id)
+    .select()
+    .single();
+
+  if (error || !data) {
+    return NextResponse.json(
+      { error: "Not found", message: "レビューが見つかりません" },
+      { status: 404 }
+    );
+  }
+
+  return NextResponse.json({ data, message: "返信を更新しました" });
 }

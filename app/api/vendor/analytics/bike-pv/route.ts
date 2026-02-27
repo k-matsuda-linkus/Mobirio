@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireVendor } from "@/lib/auth/requireAuth";
+import { isSandboxMode, sandboxLog } from "@/lib/sandbox";
+import { mockPageViews } from "@/lib/mock/pageViews";
+import { mockBikes } from "@/lib/mock/bikes";
 
 /**
  * GET /api/vendor/analytics/bike-pv
  * Get per-bike page view analytics.
- * Query params: vendor_id, year, unit (year|month|day)
+ * Query params: year, unit (year|month|day), month
  */
 export async function GET(request: NextRequest) {
   const authResult = await requireVendor(request);
@@ -12,7 +15,7 @@ export async function GET(request: NextRequest) {
     return authResult;
   }
 
-  const { vendor } = authResult;
+  const { vendor, supabase } = authResult;
   const searchParams = request.nextUrl.searchParams;
   const year = searchParams.get("year") || new Date().getFullYear().toString();
   const unit = searchParams.get("unit") || "month";
@@ -27,13 +30,6 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // TODO: Replace with Supabase query once schema is applied
-  const mockBikes = [
-    { bike_id: "bike_001", bike_name: "PCX 160" },
-    { bike_id: "bike_002", bike_name: "NMAX 155" },
-    { bike_id: "bike_003", bike_name: "ADV 160" },
-  ];
-
   const generatePeriods = () => {
     if (unit === "month") {
       return Array.from({ length: 12 }, (_, i) =>
@@ -41,11 +37,7 @@ export async function GET(request: NextRequest) {
       );
     } else if (unit === "day") {
       const month = searchParams.get("month") || "01";
-      const daysInMonth = new Date(
-        parseInt(year),
-        parseInt(month),
-        0
-      ).getDate();
+      const daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate();
       return Array.from({ length: daysInMonth }, (_, i) =>
         `${year}-${month.padStart(2, "0")}-${String(i + 1).padStart(2, "0")}`
       );
@@ -56,11 +48,89 @@ export async function GET(request: NextRequest) {
 
   const periods = generatePeriods();
 
-  const data = mockBikes.map((bike) => ({
-    ...bike,
+  if (isSandboxMode()) {
+    sandboxLog("GET /api/vendor/analytics/bike-pv", `vendor=${vendor.id}, year=${year}, unit=${unit}`);
+
+    const vendorBikes = mockBikes.filter((b) => b.vendor_id === vendor.id);
+    const bikeViews = mockPageViews.filter(
+      (pv) => pv.vendor_id === vendor.id && pv.page_type === "bike_detail"
+    );
+
+    const data = vendorBikes.map((bike) => ({
+      bike_id: bike.id,
+      bike_name: bike.name,
+      periods: periods.map((label) => {
+        const views = bikeViews.filter(
+          (pv) => pv.bike_id === bike.id && pv.viewed_at.startsWith(label)
+        );
+        const pc = views.filter((pv) => pv.device_type === "desktop").length;
+        const sp = views.filter((pv) => pv.device_type === "mobile" || pv.device_type === "tablet").length;
+        return { label, pc, sp, total: pc + sp };
+      }),
+    }));
+
+    return NextResponse.json({
+      data,
+      vendor_id: vendor.id,
+      year: parseInt(year),
+      unit,
+      message: "OK",
+    });
+  }
+
+  // 本番: Supabase
+  const { data: bikes, error: bikesError } = await supabase
+    .from("bikes")
+    .select("id, name")
+    .eq("vendor_id", vendor.id);
+
+  if (bikesError) {
+    return NextResponse.json(
+      { error: "Database error", message: bikesError.message },
+      { status: 500 }
+    );
+  }
+
+  let pvQuery = supabase
+    .from("page_views")
+    .select("*")
+    .eq("vendor_id", vendor.id)
+    .eq("page_type", "bike_detail");
+
+  if (unit === "year") {
+    const startYear = parseInt(year) - 2;
+    pvQuery = pvQuery.gte("viewed_at", `${startYear}-01-01`).lt("viewed_at", `${parseInt(year) + 1}-01-01`);
+  } else if (unit === "day") {
+    const month = searchParams.get("month") || "01";
+    const daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate();
+    pvQuery = pvQuery
+      .gte("viewed_at", `${year}-${month.padStart(2, "0")}-01`)
+      .lte("viewed_at", `${year}-${month.padStart(2, "0")}-${daysInMonth}T23:59:59`);
+  } else {
+    pvQuery = pvQuery.gte("viewed_at", `${year}-01-01`).lt("viewed_at", `${parseInt(year) + 1}-01-01`);
+  }
+
+  const { data: views, error: pvError } = await pvQuery;
+
+  if (pvError) {
+    return NextResponse.json(
+      { error: "Database error", message: pvError.message },
+      { status: 500 }
+    );
+  }
+
+  const pvList = (views || []) as Array<{ bike_id: string | null; viewed_at: string; device_type: string | null }>;
+  const bikeList = bikes || [];
+
+  const data = bikeList.map((bike) => ({
+    bike_id: bike.id,
+    bike_name: bike.name,
     periods: periods.map((label) => {
-      const pc = Math.floor(Math.random() * 50) + 5;
-      const sp = Math.floor(Math.random() * 80) + 10;
+      const periodViews = pvList.filter(
+        (pv) => pv.bike_id === bike.id && pv.viewed_at?.startsWith(label)
+      );
+      const pc = periodViews.filter((pv) => pv.device_type === "desktop").length;
+      const sp = periodViews.filter((pv) => pv.device_type !== "desktop").length;
       return { label, pc, sp, total: pc + sp };
     }),
   }));

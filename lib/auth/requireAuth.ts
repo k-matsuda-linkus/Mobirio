@@ -2,7 +2,8 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 import { isSandboxMode, sandboxLog } from "@/lib/sandbox";
 import { mockUsers } from "@/lib/mock/users";
-import type { User, Vendor } from "@/types/database";
+import { isAdminAsync } from "@/lib/admin";
+import type { User, Vendor, AdminRole } from "@/types/database";
 
 export interface AuthResult {
   user: User;
@@ -15,6 +16,7 @@ export interface VendorAuthResult extends AuthResult {
 
 export interface AdminAuthResult extends AuthResult {
   user: User & { role: "admin" };
+  adminRole: AdminRole;
 }
 
 export async function requireAuth(
@@ -176,7 +178,25 @@ export async function requireAdmin(
     );
   }
 
-  return { user: user as User & { role: "admin" }, supabase };
+  // sandbox モードは super_admin 固定
+  if (isSandboxMode()) {
+    return {
+      user: user as User & { role: "admin" },
+      supabase,
+      adminRole: "super_admin",
+    };
+  }
+
+  // 本番: 環境変数 + DB 二重チェック
+  const { isAdmin, role: adminRole } = await isAdminAsync(user.email);
+  if (!isAdmin) {
+    return NextResponse.json(
+      { error: "Forbidden", message: "管理者権限が必要です" },
+      { status: 403 }
+    );
+  }
+
+  return { user: user as User & { role: "admin" }, supabase, adminRole };
 }
 
 export function verifyCronSecret(request: NextRequest): boolean {
