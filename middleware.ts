@@ -80,7 +80,10 @@ export async function middleware(req: NextRequest) {
   }
 
   // --- Sandbox モード: 認証チェックをスキップ ---
+  // SANDBOX_MODE（サーバー専用）は Edge Runtime でランタイム参照可能
+  // NEXT_PUBLIC_SANDBOX_MODE はビルド時インライン化のためフォールバック
   const isSandbox =
+    process.env.SANDBOX_MODE === 'true' ||
     process.env.NEXT_PUBLIC_SANDBOX_MODE === 'true' ||
     !process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (isSandbox) {
