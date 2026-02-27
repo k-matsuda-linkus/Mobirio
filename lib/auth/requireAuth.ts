@@ -163,6 +163,32 @@ export async function requireVendor(
 export async function requireAdmin(
   request: NextRequest
 ): Promise<AdminAuthResult | NextResponse> {
+  // sandbox モード: admin ユーザーを直接使用
+  if (isSandboxMode()) {
+    const adminMock = mockUsers.find((u) => u.role === "admin") || mockUsers[0];
+    sandboxLog("requireAdmin", `admin=${adminMock.id} (${adminMock.full_name})`);
+
+    const adminUser: User = {
+      id: adminMock.id,
+      email: adminMock.email,
+      full_name: adminMock.full_name,
+      phone: adminMock.phone,
+      role: "admin",
+      avatar_url: null,
+      is_banned: false,
+      banned_at: null,
+      banned_reason: null,
+      created_at: adminMock.created_at,
+      updated_at: adminMock.updated_at,
+    };
+
+    return {
+      user: adminUser as User & { role: "admin" },
+      supabase: null as unknown as AuthResult["supabase"],
+      adminRole: "super_admin",
+    };
+  }
+
   const authResult = await requireAuth(request);
 
   if (authResult instanceof NextResponse) {
@@ -176,15 +202,6 @@ export async function requireAdmin(
       { error: "Forbidden", message: "管理者権限が必要です" },
       { status: 403 }
     );
-  }
-
-  // sandbox モードは super_admin 固定
-  if (isSandboxMode()) {
-    return {
-      user: user as User & { role: "admin" },
-      supabase,
-      adminRole: "super_admin",
-    };
   }
 
   // 本番: 環境変数 + DB 二重チェック
